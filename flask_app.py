@@ -27,12 +27,15 @@ def procesar_archivos():
     # Realizar la fusión de los DataFrames basada en la columna "Abonados"
     df_resultado = pd.merge(df_cortes, df_abonados, on="abonados", how="inner")
 
+
     # Filtrar los registros con observaciones vacías o NaN y con Estatus igual a "ACTIVO"
     df_resultado = df_resultado[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus']]
     df_resultado = df_resultado[(df_resultado['observaciones'].isna() | (df_resultado['observaciones'] == '')) & 
                                 (df_resultado['estatus'] == 'ACTIVO')]
-
-    return render_template('resultado.html', data=df_resultado.to_html(classes='table table-bordered table-success table-striped text-center  table-hover'))
+    if df_resultado.empty:
+            return render_template('exitoso.html')
+    else:
+        return render_template('resultado.html', data=df_resultado.to_html(classes='table table-bordered table-success table-striped text-center  table-hover'))
     
     
 
