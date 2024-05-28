@@ -33,7 +33,7 @@ def procesar_archivos():
     df_resultado = df_resultado[(df_resultado['observaciones'].isna() | (df_resultado['observaciones'] == '')) & 
                                 (df_resultado['estatus'] == 'ACTIVO')]
     if df_resultado.empty:
-            return render_template('exitoso.html')
+            return render_template('exitoso.html') #return
     else:
         return render_template('resultado.html', data=df_resultado.to_html(classes='table table-bordered table-success table-striped text-center  table-hover'))
     
