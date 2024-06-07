@@ -57,6 +57,9 @@ def procesar_archivos():
 
     return render_template('resultado.html', data=df_resultado.to_dict(orient='records'))
 
+
+
+
 @app.route('/descargar_resultado')
 def descargar_resultado():
     global resultado_excel
