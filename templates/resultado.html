@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resultado del Procesamiento</title>
-    <!-- Incluir los archivos CSS de Bootstrap 4 -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
         /* Estilo personalizado para centrar el contenido verticalmente */
         .center-screen {
@@ -24,24 +23,52 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <div class="container">
-            <a class="navbar-brand mx-auto" href="#">TuCable</a>
+        <a class="navbar-brand" href="/">Inicio</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavDropdown">
+          <ul class="navbar-nav">
+            <li class="nav-item active">
+                <a class="nav-link" href="cpendiente">Cortes <span class="sr-only">(Falta pendiente)</span></a>
+
+            </li>
+          </ul>
         </div>
-    </nav>
+      </nav>
+
     <div class="container mt-5">
-    
         <h1>Resultado del Procesamiento</h1>
-        
-        
-                {{data|safe}}
-        
+        <table class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Abonados</th>
+                    <th>Documento</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Observaciones</th>
+                    <th>Estatus</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                <tr>
+                    <td>{{ row['abonados'] }}</td>
+                    <td>{{ row['documento_x'] }}</td>
+                    <td>{{ row['nombre_x'] }}</td>
+                    <td>{{ row['apellido_x'] }}</td>
+                    <td>{{ row['observaciones'] }}</td>
+                    <td>{{ row['estatus'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         <div class="text-center">
-            <a href="/" class="btn btn-outline-success">Intentar de Nuevo</a>
+            <a href="cpendiente" class="btn btn-outline-success">Intentar de Nuevo</a>
+            <a href="/descargar_resultado" class="btn btn-outline-primary">Descargar Excel</a>
         </div>
     </div>
-    <!-- Incluir los archivos JS de Bootstrap 4 -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>
