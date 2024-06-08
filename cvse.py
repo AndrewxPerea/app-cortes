@@ -4,7 +4,7 @@ import re
 def procesar_archivo_csv(archivo):
     try:
         # Leer el archivo CSV con Pandas
-        df = pd.read_csv(archivo, usecols=['SN', 'Name', 'OLT', 'CATV', 'Status', "CATV","Administrative status", 'Service port upload speed'])
+        df = pd.read_csv(archivo, usecols=['SN', 'Name', 'OLT', 'CATV',"Administrative status", 'Service port upload speed'])
        
         
         # Crear una nueva columna con el primer dato antes del guion
@@ -26,7 +26,7 @@ def procesar_archivo_csv(archivo):
 def procesar_archivo_excel(archivo):
     try:
         # Leer el archivo Excel con Pandas
-        df = pd.read_excel(archivo, usecols=['N° Abonado', 'Documento','Nombre','Apellido','Estatus','EQUIPO MAC','Estatus EQ' ])
+        df = pd.read_excel(archivo, usecols=[0, 1, 2, 3, 4])
         
         # Fusionar las columnas "Nombre" y "Apellido" en una sola columna
         df['Nombre'] = df.apply(lambda row: ' '.join([str(row['Nombre']), str(row['Apellido'])]), axis=1)
@@ -34,11 +34,7 @@ def procesar_archivo_excel(archivo):
         # Eliminar la columna "Apellido"
         df.drop(columns=['Apellido'], inplace=True)
         
-        # Guardar el resultado en un archivo Excel
-        df.to_excel(f'{archivo}_modificado.xlsx', index=False)
         
-        # Mostrar los primeros cinco registros
-        print(df.head())
         
         return df
 
@@ -60,7 +56,15 @@ df_cortes = procesar_archivo_csv(cortes_file)
 
 # Fusionar DataFrames si no son vacíos
 if not df_abonados.empty and not df_cortes.empty:
-    resultado = pd.merge(df_abonados, df_cortes, how='left', left_on='N° Abonado', right_on='codigo', suffixes=('_abonados', '_cortes'))
+    resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='N° Abonado', right_on='codigo', suffixes=('_abonados', '_cortes'))
+    resultado = resultado.dropna(subset=['N° Abonado'])
+    resultado.columns = resultado.columns.str.lower()
     print(resultado.head())
     resultado.to_excel('fusion_resultado.xlsx', index=False)
-    print("El resultado fusionado se ha guardado correctamente en 'fusion_resultado.xlsx'.")
+    resultado_filtrado = resultado[
+        (resultado['observaciones'].isna()) & 
+        ((resultado['catv'] == 'Enabled') |
+         (resultado['administrative status'] == 'Enabled') )
+    ]
+    resultado_filtrado.to_excel('fusion_resultado2.xlsx', index=False)
+    print(resultado_filtrado.head())
