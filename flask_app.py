@@ -48,7 +48,7 @@ def procesar_archivos():
 
     resultado_excel = output
 
-    return render_template('resultado.html', data=df_resultado.to_dict(orient='records'))
+    return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns)
 
 def procesar_archivo_csv(archivo):
     try:
@@ -104,7 +104,7 @@ def cortes():
 
             resultado_excel = output_filtrado
 
-            return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'))
+            return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns)
 
     return render_template('cortes.html')
 
