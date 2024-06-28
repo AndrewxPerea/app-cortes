@@ -1,5 +1,4 @@
 import pandas as pd
-import re
 
 def procesar_archivo_csv(archivo):
     try:
@@ -26,7 +25,7 @@ def procesar_archivo_csv(archivo):
 def procesar_archivo_excel(archivo):
     try:
         # Leer el archivo Excel con Pandas
-        df = pd.read_excel(archivo, usecols=[0, 1, 2, 3, 4])
+        df = pd.read_excel(archivo)
         
         # Fusionar las columnas "Nombre" y "Apellido" en una sola columna
         df['Nombre'] = df.apply(lambda row: ' '.join([str(row['Nombre']), str(row['Apellido'])]), axis=1)
@@ -47,7 +46,7 @@ def procesar_archivo_excel(archivo):
         return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
 
 # Rutas de los archivos
-abonados_file = "cortes.xlsx" 
+abonados_file = "abonados.xlsx" 
 cortes_file = "olt.csv"
 
 # Procesar archivos
@@ -61,10 +60,5 @@ if not df_abonados.empty and not df_cortes.empty:
     resultado.columns = resultado.columns.str.lower()
     print(resultado.head())
     resultado.to_excel('fusion_resultado.xlsx', index=False)
-    resultado_filtrado = resultado[
-        (resultado['observaciones'].isna()) & 
-        ((resultado['catv'] == 'Enabled') |
-         (resultado['administrative status'] == 'Enabled') )
-    ]
-    resultado_filtrado.to_excel('fusion_resultado2.xlsx', index=False)
-    print(resultado_filtrado.head())
+    
+   
