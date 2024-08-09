@@ -123,7 +123,12 @@ def solointernet():
                     (resultado['detalle suscripcion'].str.contains('@', na=False)) & 
                     (resultado['catv'] == 'Enabled')
                 ]
-
+                columnas_deseadas = [
+                'n° abonado', 'documento', 'nombre', 'apellido',
+                'estatus', 'equipo maco', 'detalle suscripcion', 'sn', 'olt', 
+                'catv', 'administrative status'
+            ]
+                abonados_filtrados = abonados_filtrados[columnas_deseadas]
                 if not abonados_filtrados.empty:
                     abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados Filtrados')
 
