@@ -73,7 +73,7 @@ def procesar_archivo_csv_solo(archivo):
     try:
         # Leer el archivo CSV sin fragmentarlo
         df = pd.read_csv(archivo, low_memory=False)
-        df['NSN'] = df['SN'].astype(str).str[-8:]  # Crear la columna NSN con los últimos 8 dígitos
+        df['NSN'] = df['SN'].astype(str).str[-8:] # Crear la columna NSN con los últimos 8 dígitos
         return df
     
     except FileNotFoundError:
