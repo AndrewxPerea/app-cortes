@@ -2,16 +2,9 @@ import pandas as pd
 
 def procesar_archivo_csv(archivo):
     try:
-        # Leer el archivo CSV con Pandas
-        df = pd.read_csv(archivo, usecols=['SN', 'Name', 'OLT', 'CATV',"Administrative status", 'Service port upload speed'])
-       
-        
-        # Crear una nueva columna con el primer dato antes del guion
-        df['codigo'] = df['Name'].str.split(' - ').str[0]
-        
-        # Mostrar los primeros cinco registros
-        print(df.head())
-        
+        # Leer el archivo CSV sin fragmentarlo
+        df = pd.read_csv(archivo, low_memory=False)
+        df['NSN'] = df['SN'].astype(str).str[-8:]  # Crear la columna NSN con los últimos 8 dígitos
         return df
     
     except FileNotFoundError:
@@ -24,17 +17,9 @@ def procesar_archivo_csv(archivo):
 
 def procesar_archivo_excel(archivo):
     try:
-        # Leer el archivo Excel con Pandas
+        # Leer el archivo Excel
         df = pd.read_excel(archivo)
-        
-        # Fusionar las columnas "Nombre" y "Apellido" en una sola columna
-        df['Nombre'] = df.apply(lambda row: ' '.join([str(row['Nombre']), str(row['Apellido'])]), axis=1)
-        
-        # Eliminar la columna "Apellido"
-        df.drop(columns=['Apellido'], inplace=True)
-        
-        
-        
+        df['EQUIPO MACO'] = df['EQUIPO MAC'].astype(str).str[-8:]
         return df
 
     except FileNotFoundError:
@@ -46,19 +31,26 @@ def procesar_archivo_excel(archivo):
         return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
 
 # Rutas de los archivos
-abonados_file = "abonados.xlsx" 
-cortes_file = "olt.csv"
+solointernet = "dosquebradas.xlsx" 
+olt = "guaviare2.csv"
 
 # Procesar archivos
-df_abonados = procesar_archivo_excel(abonados_file)
-df_cortes = procesar_archivo_csv(cortes_file)
+dfsolointernet = procesar_archivo_excel(solointernet)
+dfolt = procesar_archivo_csv(olt)
+
 
 # Fusionar DataFrames si no son vacíos
-if not df_abonados.empty and not df_cortes.empty:
-    resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='N° Abonado', right_on='codigo', suffixes=('_abonados', '_cortes'))
-    resultado = resultado.dropna(subset=['N° Abonado'])
-    resultado.columns = resultado.columns.str.lower()
-    print(resultado.head())
+if not dfsolointernet.empty and not dfolt.empty:
+    resultado = pd.merge(dfsolointernet, dfolt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+    resultado = resultado.dropna(subset=['EQUIPO MACO'])
     resultado.to_excel('fusion_resultado.xlsx', index=False)
-    
-   
+    abonados_filtrados = resultado[
+        (resultado['Detalle Suscripcion'].str.contains('@', na=False)) & 
+                ((resultado['CATV'] == 'Enabled'))]
+    if not abonados_filtrados.empty:
+        abonados_filtrados.to_excel('abonados__filtrados.xlsx', index=False)
+        print("Archivo 'abonados__filtrados.xlsx' creado con éxito.")
+    else:
+        print("No se encontraron abonados que no coincidan con '@' en 'Detalle Suscripcion'.")
+else:
+    print("Uno o ambos DataFrames están vacíos.")
