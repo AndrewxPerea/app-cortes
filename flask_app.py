@@ -169,7 +169,7 @@ def noactivos():
                 
                 columnas_deseadas = [
                     'n° abonado', 'documento', 'nombre', 'apellido',
-                    'estatus', 'status', 'equipo maco', 'detalle suscripcion', 'sn', 'olt', 
+                    'estatus', 'status', 'equipo maco', 'sn', 'olt', 
                     'catv', 'administrative status'
                 ]
                 abonados_filtrados = abonados_filtrados[columnas_deseadas]
