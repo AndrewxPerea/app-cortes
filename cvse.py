@@ -31,26 +31,36 @@ def procesar_archivo_excel(archivo):
         return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
 
 # Rutas de los archivos
-solointernet = "dosquebradas.xlsx" 
-olt = "guaviare2.csv"
+abonados = "abonados.xlsx" 
+olt = "olt.csv"
 
 # Procesar archivos
-dfsolointernet = procesar_archivo_excel(solointernet)
+dfequipos = procesar_archivo_excel(abonados)
 dfolt = procesar_archivo_csv(olt)
 
 
 # Fusionar DataFrames si no son vacíos
-if not dfsolointernet.empty and not dfolt.empty:
-    resultado = pd.merge(dfsolointernet, dfolt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+if not dfequipos.empty and not dfolt.empty:
+    # Realiza la fusión de los DataFrames
+    resultado = pd.merge(dfequipos, dfolt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
     resultado = resultado.dropna(subset=['EQUIPO MACO'])
-    resultado.to_excel('fusion_resultado.xlsx', index=False)
+    
+    # Filtra los datos según las condiciones dadas
     abonados_filtrados = resultado[
-        (resultado['Detalle Suscripcion'].str.contains('@', na=False)) & 
-                ((resultado['CATV'] == 'Enabled'))]
+        (resultado['Estatus'].str.lower().isin(['activo', 'por instalar']) == False) &  # Filtra los que no sean "estatus activo" o "estatus por instalar"
+        ((resultado['Administrative status'].str.lower() == 'enabled') |  # Y que tengan "administrative status" o "catv" en "enabled"
+         (resultado['CATV'].str.lower() == 'enabled'))
+    ]
+    
+    # Guarda el DataFrame fusionado
+    resultado.to_excel('fusion_resultado.xlsx', index=False)
+    
+    # Verifica si existen abonados filtrados y guarda el archivo
     if not abonados_filtrados.empty:
-        abonados_filtrados.to_excel('abonados__filtrados.xlsx', index=False)
-        print("Archivo 'abonados__filtrados.xlsx' creado con éxito.")
+        abonados_filtrados.to_excel('abonados_filtrados.xlsx', index=False)
+        print("Archivo 'abonados_filtrados.xlsx' creado con éxito.")
     else:
-        print("No se encontraron abonados que no coincidan con '@' en 'Detalle Suscripcion'.")
+        print("No se encontraron abonados que coincidan con las condiciones especificadas.")
 else:
     print("Uno o ambos DataFrames están vacíos.")
+

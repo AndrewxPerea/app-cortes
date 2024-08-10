@@ -139,6 +139,52 @@ def solointernet():
 
     return render_template('solointernet.html')
 
+
+@app.route('/noactivos', methods=['GET', 'POST'])
+def noactivos():
+    global resultado_excel
+    if request.method == 'POST':
+        abonados_file = request.files['abonados_solointernet']
+        cortes_file = request.files['olt']
+
+        df_abonados = procesar_archivo_excel_solo(abonados_file)
+        df_cortes = procesar_archivo_csv_solo(cortes_file)
+
+        if not df_abonados.empty and not df_cortes.empty:
+            resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+            resultado = resultado.dropna(subset=['EQUIPO MACO'])
+            resultado.columns = resultado.columns.str.lower()
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                resultado.to_excel(writer, index=False, sheet_name='Resultado')
+
+                abonados_filtrados = resultado[
+                (resultado['estatus'].str.lower().isin(['activo', 'por instalar']) == False) &  # Filtra los que no sean "estatus activo" o "estatus por instalar"
+                ((resultado['administrative status'].str.lower() == 'enabled') |  # Y que tengan "administrative status" o "catv" en "enabled"
+                (resultado['catv'].str.lower() == 'enabled'))]            
+                
+                if not abonados_filtrados.empty:
+                    abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados Filtrados')
+                
+                columnas_deseadas = [
+                    'n° abonado', 'documento', 'nombre', 'apellido',
+                    'estatus', 'status', 'equipo maco', 'detalle suscripcion', 'sn', 'olt', 
+                    'catv', 'administrative status'
+                ]
+                abonados_filtrados = abonados_filtrados[columnas_deseadas]
+                
+                if not abonados_filtrados.empty:
+                    abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados Filtrados')
+                
+
+            output.seek(0)
+            resultado_excel = output
+
+            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
+
+    return render_template('noactivos.html')
+
 @app.route('/cortes', methods=['GET', 'POST'])
 def cortes():
     global resultado_excel
