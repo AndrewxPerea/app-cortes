@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import io
 
+
 app = Flask(__name__)
 
 # Variable global para almacenar el archivo Excel resultante
@@ -14,6 +15,10 @@ def index():
 @app.route('/reconexiones')
 def reconexiones():
     return render_template('reconexiones.html')
+
+@app.route('/plantillas')
+def plantillas():
+    return render_template('plantillas.html')
 
 @app.route('/procesar', methods=['POST'])
 def procesar_archivos():
