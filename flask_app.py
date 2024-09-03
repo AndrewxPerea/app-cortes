@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import io
-from funciones import procesar_excel
+from funciones import procesar_excel, procesar_archivo_csv, procesar_archivo_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
 
 app = Flask(__name__)
 
@@ -56,55 +56,6 @@ def procesar_archivos():
 
     return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns)
 
-def procesar_archivo_csv(archivo):
-    try:
-        df = pd.read_csv(archivo, usecols=['SN', 'Name', 'OLT', 'CATV', "Administrative status", 'Service port upload speed'])
-        df['codigo'] = df['Name'].str.split(' - ').str[0]
-        return df
-    except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-
-def procesar_archivo_excel(archivo):
-    try:
-        df = pd.read_excel(archivo, usecols=[0, 1, 2, 3, 4])
-        df['Nombre'] = df.apply(lambda row: ' '.join([str(row['Nombre']), str(row['Apellido'])]), axis=1)
-        df.drop(columns=['Apellido'], inplace=True)
-        return df
-    except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-
-def procesar_archivo_csv_solo(archivo):
-    try:
-        # Leer el archivo CSV sin fragmentarlo
-        df = pd.read_csv(archivo, low_memory=False)
-        df['NSN'] = df['SN'].astype(str).str[-8:] # Crear la columna NSN con los últimos 8 dígitos
-        return df
-    
-    except FileNotFoundError:
-        print(f"El archivo {archivo} no se encontró.")
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-    
-    except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-
-def procesar_archivo_excel_solo(archivo):
-    try:
-        # Leer el archivo Excel
-        df = pd.read_excel(archivo)
-        df['EQUIPO MACO'] = df['EQUIPO MAC'].astype(str).str[-8:]
-        return df
-
-    except FileNotFoundError:
-        print(f"El archivo {archivo} no se encontró.")
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-    
-    except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-    
 
 @app.route('/solointernet', methods=['GET', 'POST'])
 def solointernet():
