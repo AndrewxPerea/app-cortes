@@ -1,6 +1,4 @@
-from flask import  render_template, request, send_file, redirect, url_for
 import pandas as pd
-import io
 
 def procesar_excel(archivo_excel):
     df = pd.read_excel(archivo_excel)
@@ -31,11 +29,11 @@ def procesar_excel(archivo_excel):
     # Generar el mensaje personalizado
     df['Mensaje'] = df.apply(lambda row: (
             f"{row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a "
-            f"Nuevo plan  {row['Plan Nuevo']} de solo internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
+            f"{row['Plan Nuevo']} Mbps de solo internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
             "Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
             if '@' in row['Plan Nuevo'] else
             f"{row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a "
-            f"{row['Plan Nuevo']} internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
+            f"{row['Plan Nuevo']}Mbps de internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
             "Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
         ), axis=1)
 
