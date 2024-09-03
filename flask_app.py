@@ -1,7 +1,8 @@
+import os
 from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import io
-
+from funciones import procesar_excel
 
 app = Flask(__name__)
 
@@ -228,6 +229,48 @@ def cortes():
             return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns)
 
     return render_template('cortes.html')
+
+@app.route('/plan', methods=['GET', 'POST'])
+def plan():
+    return render_template('cambioplan.html')
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return 'No file part'
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return 'No selected file'
+
+        if file:
+            # Crear el directorio uploads si no existe
+            upload_dir = 'uploads'
+            if not os.path.exists(upload_dir):
+                os.makedirs(upload_dir)
+
+            # Guardar archivo subido temporalmente
+            file_path = os.path.join(upload_dir, file.filename)
+            file.save(file_path)
+
+            try:
+                # Procesar el archivo Excel
+                processed_file = procesar_excel(file_path)
+
+                # Eliminar el archivo después de procesarlo
+                os.remove(file_path)
+
+                # Devolver el archivo procesado
+                return send_file(processed_file, as_attachment=True)
+            except Exception as e:
+                # Asegurarse de eliminar el archivo si ocurre un error
+                os.remove(file_path)
+                return f"Error processing file: {str(e)}"
+
+    return render_template('upload.html')
+
 
 @app.route('/descargar_resultado')
 def descargar_resultado():

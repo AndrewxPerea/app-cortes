@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Cambio de plan{% endblock %} {% block content %}
+<div class="container mt-5">
+    <h1>Sube tu archivo Excel</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="formFile" class="form-label">Selecciona un archivo</label>
+            <input class="form-control" type="file" id="formFile" name="file">
+        </div>
+        <button type="submit" class="btn btn-primary">Subir y procesar</button>
+    </form>
+</div>
+{% endblock %}
