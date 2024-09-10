@@ -4,6 +4,7 @@ import pandas as pd
 import io
 from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
 
+
 app = Flask(__name__)
 
 # Variable global para almacenar el archivo Excel resultante
@@ -154,7 +155,7 @@ def cortes():
         abonados_file = request.files['abonados']
         cortes_file = request.files['cortes']
         sae_file = request.files['asaeplus']
-
+        
         df_cortes = procesar_archivo_excel_solo(abonados_file)
         df_olt = procesar_archivo_csv_solo(cortes_file)
         df_saeplus = procesar_archivo_excel_solo(sae_file)
@@ -165,20 +166,19 @@ def cortes():
             resultado =pd.merge(resultado, df_olt, left_on='EQUIPO MACO_y', right_on='NSN', suffixes=('_abonados', '_cortes'))
             resultado = resultado.dropna(subset=['EQUIPO MACO_y'])
             resultado.columns = resultado.columns.str.lower()
-            resultado_filtrado = resultado[
-                (resultado['observaciones'].isna()) &
-                (resultado['estatus_x'] == 'CORTADO') & 
-                ((resultado['catv'] == 'Enabled') |
-                 (resultado['administrative status'] == 'Enabled'))
-            ]
             columnas_deseadas = [
                     'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
                     'estatus_x', 'observaciones', 'sn', 'olt', 
                     'catv', 'administrative status'
                 ]
-            resultado_filtrado = resultado_filtrado[columnas_deseadas]
-
-       
+            resultado_filtrado = resultado[columnas_deseadas]
+            resultado_filtrado = resultado_filtrado [
+                (resultado['observaciones'].isna()) &
+                (resultado['estatus_x'] == 'CORTADO') & 
+                ((resultado['catv'] == 'Enabled') |
+                (resultado['administrative status'] == 'Enabled'))
+            ]
+          
             output_filtrado = io.BytesIO()
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 resultado_filtrado.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
