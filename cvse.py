@@ -21,7 +21,7 @@ if not df_cortes.empty and not df_saeplus.empty and not df_olt.empty:
                 (resultado['observaciones'].isna()) &
                 (resultado['estatus_x'] == 'CORTADO') & 
                 ((resultado['catv'] == 'Enabled') |
-                 (resultado['administrative status'] == 'Enabled'))
+                (resultado['administrative status'] == 'Enabled'))
             ]
 
             print(resultado_filtrado.head(10))
