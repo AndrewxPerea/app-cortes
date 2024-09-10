@@ -1,6 +1,7 @@
-
-
+from flask import  render_template
 import pandas as pd
+
+
 
 def procesar_excel(archivo_excel):
     df = pd.read_excel(archivo_excel)
@@ -46,25 +47,6 @@ def procesar_excel(archivo_excel):
     return output_file
 
 
-def procesar_archivo_csv(archivo):
-    try:
-        df = pd.read_csv(archivo, usecols=['SN', 'Name', 'OLT', 'CATV', "Administrative status", 'Service port upload speed'])
-        df['codigo'] = df['Name'].str.split(' - ').str[0]
-        return df
-    except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-
-def procesar_archivo_excel(archivo):
-    try:
-        df = pd.read_excel(archivo, usecols=[0, 1, 2, 3, 4])
-        df['Nombre'] = df.apply(lambda row: ' '.join([str(row['Nombre']), str(row['Apellido'])]), axis=1)
-        df.drop(columns=['Apellido'], inplace=True)
-        return df
-    except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
-
 def procesar_archivo_csv_solo(archivo):
     try:
         # Leer el archivo CSV sin fragmentarlo
@@ -74,11 +56,11 @@ def procesar_archivo_csv_solo(archivo):
     
     except FileNotFoundError:
         print(f"El archivo {archivo} no se encontró.")
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
+        return render_template('error.html', error=str(e))
     
     except Exception as e:
         print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
+        return render_template('error.html', error=str(e))  # Devolver un DataFrame vacío en caso de error
 
 def procesar_archivo_excel_solo(archivo):
     try:
@@ -89,9 +71,9 @@ def procesar_archivo_excel_solo(archivo):
 
     except FileNotFoundError:
         print(f"El archivo {archivo} no se encontró.")
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
+        return render_template('error.html', error=str(e))
     
     except Exception as e:
         print(f"Ocurrió un error al procesar {archivo}:", e)
-        return pd.DataFrame()  # Devolver un DataFrame vacío en caso de error
+        return render_template('error.html', error=str(e)) 
     

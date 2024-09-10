@@ -2,24 +2,25 @@ import os
 from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import io
-from funciones import procesar_excel, procesar_archivo_csv, procesar_archivo_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
+from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
 
 app = Flask(__name__)
 
 # Variable global para almacenar el archivo Excel resultante
 resultado_excel = None
 
+#index
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/reconexiones')
+#pagina reconexiones
+
+@app.route('/reconexiones',)
 def reconexiones():
     return render_template('reconexiones.html')
 
-@app.route('/plantillas')
-def plantillas():
-    return render_template('plantillas.html')
 
 @app.route('/procesar', methods=['POST'])
 def procesar_archivos():
@@ -104,8 +105,12 @@ def noactivos():
         abonados_file = request.files['abonados_solointernet']
         cortes_file = request.files['olt']
 
-        df_abonados = procesar_archivo_excel_solo(abonados_file)
-        df_cortes = procesar_archivo_csv_solo(cortes_file)
+        try:
+
+            df_abonados = procesar_archivo_excel_solo(abonados_file)
+            df_cortes = procesar_archivo_csv_solo(cortes_file)
+        except Exception as e:
+            return render_template('error.html', error=str(e))
 
         if not df_abonados.empty and not df_cortes.empty:
             resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
@@ -148,42 +153,45 @@ def cortes():
     if request.method == 'POST':
         abonados_file = request.files['abonados']
         cortes_file = request.files['cortes']
+        sae_file = request.files['asaeplus']
 
-        df_abonados = procesar_archivo_excel(abonados_file)
-        df_cortes = procesar_archivo_csv(cortes_file)
+        df_cortes = procesar_archivo_excel_solo(abonados_file)
+        df_olt = procesar_archivo_csv_solo(cortes_file)
+        df_saeplus = procesar_archivo_excel_solo(sae_file)
 
-        if not df_abonados.empty and not df_cortes.empty:
-            resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='N° Abonado', right_on='codigo', suffixes=('_abonados', '_cortes'))
+        if not df_cortes.empty and not df_saeplus.empty and not df_olt.empty:
+            resultado = pd.merge( df_saeplus, df_cortes, how='right', left_on='N° Abonado', right_on='N° Abonado')
             resultado = resultado.dropna(subset=['N° Abonado'])
+            resultado =pd.merge(resultado, df_olt, left_on='EQUIPO MACO_y', right_on='NSN', suffixes=('_abonados', '_cortes'))
+            resultado = resultado.dropna(subset=['EQUIPO MACO_y'])
             resultado.columns = resultado.columns.str.lower()
-
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                resultado.to_excel(writer, index=False, sheet_name='Resultado')
-            output.seek(0)
-
-            resultado_excel = output
-
             resultado_filtrado = resultado[
-                (resultado['observaciones'].isna()) & 
+                (resultado['observaciones'].isna()) &
+                (resultado['estatus_x'] == 'CORTADO') & 
                 ((resultado['catv'] == 'Enabled') |
                  (resultado['administrative status'] == 'Enabled'))
             ]
+            columnas_deseadas = [
+                    'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
+                    'estatus_x', 'observaciones', 'sn', 'olt', 
+                    'catv', 'administrative status'
+                ]
+            resultado_filtrado = resultado_filtrado[columnas_deseadas]
 
+       
             output_filtrado = io.BytesIO()
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 resultado_filtrado.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
             output_filtrado.seek(0)
 
             resultado_excel = output_filtrado
+            
 
             return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns)
 
     return render_template('cortes.html')
 
-@app.route('/plan', methods=['GET', 'POST'])
-def plan():
-    return render_template('cambioplan.html')
+
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
@@ -233,3 +241,4 @@ def descargar_resultado():
 
 if __name__ == '__main__':
     app.run(debug=True)
+

@@ -4,7 +4,13 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 80vh; /* Altura del viewport */
+        height: 50vh; /* Altura del viewport */
+      }
+      .center-screen-2 {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 20vh; /* Altura del viewport */
       }
       .navbar-title {
         font-size: 50px; /* Puedes ajustar este valor según tus necesidades */
@@ -13,16 +19,17 @@
         background-color: #f2f2f2; /* Color de fondo gris claro */
       }
     </style>
- 
+
     {% extends 'base.html' %}
-   
+
     {% block title %}Reconexiones{% endblock %}
     {% block content %}
-   
+
+
 
     <div class="container center-screen">
       <div class="row">
-        <div class="col">
+        
           <h1>Auditoria de Reconexiones</h1>
 
           <form action="/procesar" method="post" enctype="multipart/form-data">
@@ -42,7 +49,7 @@
 
             <div class="input-group mb-3">
               <label class="input-group-text" for="cortes"
-                >Archivo de Cortes(Zoho):</label
+                >Archivo de Cortes(Workdrive):</label
               >
               <input
                 type="file"
@@ -59,31 +66,35 @@
               value="Procesar Archivos"
             />
           </form>
-        </div>
-        <div class="card" style="width: 18rem;">
+
+      </div>
+    </div>
+    <div class="container center-screen-2">
+      
+      <div class="row">
+        <h1>Instrucciones</h1>
+        <div class="card" style="width: 36rem;">
           <div class="card-header">
-            Instrucciones
+            Archivo de SaePlus
           </div>
           <ul class="list-group list-group-flush">
-            <li class="list-group-item">Descargue el archivo de abonados segun la franquicia en SaePlus</li>
+            <li class="list-group-item">Exporte el archivo de abonados segun la franquicia en SaePlus</li>
             <li class="list-group-item">Abra el archivo de abonados  de SaePlus y guarde nuevamente el archivo</li>
-            <li class="list-group-item">Cargue el archivo de SaePlus en el Aplicación en la zona de Abonados(SaePlus) </li>
+            <li class="list-group-item">Cargue el archivo de SaePlus en el item de Abonados(SaePlus) </li>
           </ul>
         </div>
-        <div class="card" style="width: 18rem;">
+        <div class="card" style="width: 36rem;">
           <div class="card-header">
-            Instrucciones
+            Archivo de workdrive
           </div>
           <ul class="list-group list-group-flush">
-            <li class="list-group-item">Descargue el archivo de Cortes segun la franquicia en Zoho</li>
-            <li class="list-group-item">Cargue el archivo de Cortes en el Aplicación en la zona de Cortes (Zoho)</li>
+            <li class="list-group-item">Exporte el archivo de Cortes segun la franquicia desde workdrive</li>
+            <li class="list-group-item">Cargue el archivo de Cortes en el item Cortes (Zoho)</li>
           </ul>
         </div>
       </div>
-      
+      </div>
     </div>
-
-  
   {% endblock %}
 
 

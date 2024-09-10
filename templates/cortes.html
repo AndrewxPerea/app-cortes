@@ -3,7 +3,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 80vh;
+        height: 50vh;
     }
 
     .navbar-title {
@@ -13,27 +13,91 @@
     body {
         background-color: #f2f2f2;
     }
+
+    .center-screen-2 {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 30vh;
+        /* Altura del viewport */
+    }
 </style>
 {% extends 'base.html' %}
 {% block title %}Cortes{% endblock %} {% block content %}
-
-<div class="container center-screen">
-    <div class="row">
-        <div class="col">
-            <h1>Auditoria de Abonados en Corte</h1>
-            <form action="/cortes" method="post" enctype="multipart/form-data">
-                <div class="input-group mb-3">
-                    <label class="input-group-text" for="abonados">Archivo de Corte de Abonados (Excel)</label>
-                    <input type="file" class="form-control" id="abonados" name="abonados">
-                </div>
-                <div class="input-group mb-3">
-                    <label class="input-group-text" for="cortes">Archivo de Abonados en SmartOlt (CSV)</label>
-                    <input type="file" class="form-control" id="cortes" name="cortes">
-                </div>
-                <input type="submit" class="btn btn-outline-success" value="Procesar Archivos">
-            </form>
+<div class="row">
+    <div class="container center-screen">
+        <div class="row">
+            <div class="col">
+                <h1>Auditoria de Abonados en Corte</h1>
+                <form action="/cortes" method="post" enctype="multipart/form-data">
+                    <div class="input-group mb-3">
+                        <label class="input-group-text" for="abonados">Archivo de Corte de Abonados (Excel,
+                            workdrive)</label>
+                        <input type="file" class="form-control" id="abonados" name="abonados">
+                    </div>
+                    <div class="input-group mb-3">
+                        <label class="input-group-text" for="cortes">Archivo de Abonados en SmartOlt (CSV,
+                            SmartOlt)</label>
+                        <input type="file" class="form-control" id="cortes" name="cortes">
+                    </div>
+                    <div class="input-group mb-3">
+                        <label class="input-group-text" for="asaeplus">Lista de abonado SaePlus (Excel, SaePlus)</label>
+                        <input type="file" class="form-control" id="asaeplus" name="asaeplus">
+                    </div>
+                    <input type="submit" class="btn btn-outline-success" value="Procesar Archivos">
+                </form>
+            </div>
         </div>
     </div>
+    <div class="container center-screen-2">
+        <div class="row">
+            
+                <h1>Instrucciones</h1>
+                <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        Archivo de SaePlus
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Exporte el archivo de abonados segun la franquicia en
+                            SaePlus</li>
+                        <li class="list-group-item">Abra el archivo de abonados de SaePlus y guarde nuevamente
+                            el archivo</li>
+                        <li class="list-group-item">Cargue el archivo de SaePlus en
+                            Abonados(SaePlus) </li>
+                    </ul>
+                </div>
+        </div>
+                <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        Archivo de workdrive
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Exporte el archivo de Cortes según la franquicia en el workdrive
+                        </li>
+                        <li class="list-group-item">Cargue el archivo de Cortes en 
+                            Cortes (Zoho)
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        Archivo de La OLT
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Exporte el archivo de abonados desde la olt
+                        </li>
+                        <li class="list-group-item">Cargue el archivo de Abonados de la Olt
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            </div>
+        </div>
 </div>
 
-{% endblock %}
+
+    {% endblock %}
