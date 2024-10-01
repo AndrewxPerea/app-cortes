@@ -1,8 +1,6 @@
 from flask import  render_template
 import pandas as pd
 
-
-
 def procesar_excel(archivo_excel):
     df = pd.read_excel(archivo_excel)
 
@@ -32,11 +30,11 @@ def procesar_excel(archivo_excel):
     # Generar el mensaje personalizado
     df['Mensaje'] = df.apply(lambda row: (
             f"Estimad@ {row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a "
-            f"{row['Plan Nuevo']} Mbps de solo internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
+            f"{row['Plan Nuevo']}bps de solo internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
             "Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
             if '@' in row['Plan Nuevo'] else
             f"Estimad@ {row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a "
-            f"{row['Plan Nuevo']}Mbps de internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
+            f"{row['Plan Nuevo']}bps de internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
             "Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
         ), axis=1)
 
@@ -76,4 +74,4 @@ def procesar_archivo_excel_solo(archivo):
     except Exception as e:
         print(f"Ocurrió un error al procesar {archivo}:", e)
         return render_template('error.html', error=str(e)) 
-    
+

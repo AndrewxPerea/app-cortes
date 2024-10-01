@@ -16,7 +16,7 @@ resultado_excel = None
 def index():
     return render_template('index.html')
 
-#pagina reconexiones
+# reconexiones________________________________________________________________________________
 
 @app.route('/reconexiones',)
 def reconexiones():
@@ -58,6 +58,8 @@ def procesar_archivos():
 
     return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns)
 
+#solo @ ________________________________________________________________________
+
 
 @app.route('/solointernet', methods=['GET', 'POST'])
 def solointernet():
@@ -98,6 +100,7 @@ def solointernet():
 
     return render_template('solointernet.html')
 
+#No activos ___________________________________________________________________
 
 @app.route('/noactivos', methods=['GET', 'POST'])
 def noactivos():
@@ -147,6 +150,8 @@ def noactivos():
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
 
     return render_template('noactivos.html')
+#Cortes____________________________________________________________________________________________
+
 
 @app.route('/cortes', methods=['GET', 'POST'])
 def cortes():
@@ -178,7 +183,6 @@ def cortes():
                 ((resultado['catv'] == 'Enabled') |
                 (resultado['administrative status'] == 'Enabled'))
             ]
-          
             output_filtrado = io.BytesIO()
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 resultado_filtrado.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
@@ -192,6 +196,7 @@ def cortes():
     return render_template('cortes.html')
 
 
+#Mensajes/________________________________________________________________________________
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
@@ -230,7 +235,7 @@ def upload_file():
 
     return render_template('upload.html')
 
-
+#Descargas /////////////////////////////////////////////////////////////
 @app.route('/descargar_resultado')
 def descargar_resultado():
     global resultado_excel
