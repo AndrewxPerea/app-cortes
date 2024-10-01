@@ -16,7 +16,7 @@ resultado_excel = None
 def index():
     return render_template('index.html')
 
-# reconexiones________________________________________________________________________________
+# reconexiones___________________________________________________
 
 @app.route('/reconexiones',)
 def reconexiones():
