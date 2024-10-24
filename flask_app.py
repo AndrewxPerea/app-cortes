@@ -249,25 +249,18 @@ def upload_file():
 def verificar_velocidad():
     global resultado_excel
     if request.method == 'POST':
-        abonados_file = request.files['abonados']
         saeplus_file = request.files['saeplus']
         olt_file = request.files['olt']
 
         # Leer los archivos cargados
-        abonados = pd.read_excel(abonados_file, usecols=[0])
-        saeplus = pd.read_excel(saeplus_file)
+        saeplus = procesar_archivo_excel_solo(saeplus_file)
         olt = procesar_archivo_csv_solo(olt_file)
 
-        # Renombrar columnas
-        abonados = abonados.rename(columns={abonados.columns[0]: 'abonados'})
-        saeplus = saeplus.rename(columns={saeplus.columns[0]: 'abonados'})
 
-        # Unir abonados y saeplus
-        data = pd.merge(abonados, saeplus, on="abonados", how="inner")
-        data['EQUIPO MACO'] = data['EQUIPO MAC'].astype(str).str[-8:]
 
-        if not data.empty and not olt.empty:
-            resultado = pd.merge(data, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+
+        if not saeplus.empty and not olt.empty:
+            resultado = pd.merge(saeplus, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_OLT'))
             resultado = resultado.dropna(subset=['EQUIPO MACO'])
             resultado.columns = resultado.columns.str.lower()
 
@@ -287,7 +280,7 @@ def verificar_velocidad():
             ]
 
             columnas_deseadas = [
-                    'abonados', 'documento', 'nombre', 'name',
+                    'n° abonado', 'documento', 'nombre', 'name','estatus',
                     'detalle suscripcion', 'nombre franquicia', 'equipo maco', 'sn', 'olt', 
                     'service port upload speed', 'service port download speed'
                 ]

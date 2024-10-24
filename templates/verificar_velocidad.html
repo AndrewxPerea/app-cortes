@@ -4,10 +4,7 @@
     <div class="container mt-5">
         <h2>Verificar Velocidad de Abonados</h2>
         <form action="{{ url_for('verificar_velocidad') }}" method="POST" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label for="abonados" class="form-label">Archivo de Abonados (Excel)</label>
-                <input type="file" name="abonados" class="form-control" required>
-            </div>
+            
             <div class="mb-3">
                 <label for="saeplus" class="form-label">Archivo SAEPLUS (Excel)</label>
                 <input type="file" name="saeplus" class="form-control" required>
