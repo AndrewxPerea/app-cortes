@@ -1,4 +1,10 @@
 <style>
+        .navbar{
+            background: linear-gradient(45deg,
+            hsla(212, 85%, 52%, 0.5),
+            hwb(29 5% 4% / 0.725) 100%
+        )
+        }
         .navbar-title {
             font-size: 50px;
         }
@@ -23,7 +29,6 @@
                 <ul class="dropdown-menu" aria-labelledby="auditoriasCortes">
                     <li><a class="dropdown-item" href="/cortes">Cortes</a></li>
                     <li><a class="dropdown-item" href="/reconexiones">Reconexiones</a></li>
-                                   
                 </ul>
             </li>
             <li class="nav-item dropdown">
@@ -33,6 +38,7 @@
                 <ul class="dropdown-menu" aria-labelledby="otrasAuditorias">
                     <li><a class="dropdown-item" href="/solointernet">Solo@</a></li>
                     <li><a class="dropdown-item" href="/noactivos">Estatus Cortado</a></li>
+                    <li><a class="dropdown-item" href="/verificar_velocidad">planes Acordes</a></li>
                 </ul>
             </li>
             <li class="nav-item dropdown">
@@ -41,8 +47,10 @@
                 </a>
             
                 <ul class="dropdown-menu" aria-labelledby="Mensajes">
-                    <a class="dropdown-item" href="/upload">Mensajes cambio de plan</a></li>  
+                <li> <a class="dropdown-item" href="/upload">Mensajes cambio de plan</a></li>  
+                <li> <a class="dropdown-item" href="/mayuscula">Conversor a mayusculas</a></li> 
                 </ul>
+
                 
             </li>   
         </ul>

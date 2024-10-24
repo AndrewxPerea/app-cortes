@@ -1,5 +1,5 @@
 <style>
-    .center-screen {
+    .center-screen  {
         display: flex;
         justify-content: center;
         align-items: center;
@@ -9,7 +9,13 @@
     .navbar-title {
         font-size: 50px;
     }
-
+    .center-screen-2 {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 30vh;
+        /* Altura del viewport */
+    }
     body {
         background-color: #f2f2f2;
     }
@@ -32,6 +38,42 @@
                 </div>
                 <input type="submit" class="btn btn-outline-success" value="Procesar Archivos">
             </form>
+        </div>
+        
+    </div>
+    
+
+    <div class="container center-screen-2">
+        <div class="row">     
+            <h1>Instrucciones</h1>
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        Archivo de SaePlus
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Exporte el archivo de abonados segun la franquicia en
+                            SaePlus (xlsx)</li>
+                        <li class="list-group-item">Abra el archivo de abonados de SaePlus y guarde nuevamente
+                            el archivo</li>
+                        <li class="list-group-item">Cargue el archivo de SaePlus en
+                            Abonados(SaePlus) </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        Archivo de La OLT
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Exporte el archivo de abonados desde la olt(CSV)
+                        </li>
+                        <li class="list-group-item">Cargue el archivo de Abonados de la Olt
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>

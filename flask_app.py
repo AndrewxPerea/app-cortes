@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import io
 from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
+import re
 
 
 app = Flask(__name__)
@@ -15,6 +16,12 @@ resultado_excel = None
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/mayuscula')
+def mayuscula():
+    return render_template('mayus.html')
+
+
 
 # reconexiones___________________________________________________
 
@@ -127,8 +134,10 @@ def noactivos():
 
                 abonados_filtrados = resultado[
                 (resultado['estatus'].str.lower().isin(['activo', 'por instalar']) == False) &  # Filtra los que no sean "estatus activo" o "estatus por instalar"
-                ((resultado['administrative status'].str.lower() == 'enabled') |  # Y que tengan "administrative status" o "catv" en "enabled"
-                (resultado['catv'].str.lower() == 'enabled'))]            
+                ((resultado['administrative status'].str.lower() == 'enabled') |
+                (resultado['catv'].str.lower() == 'enabled')) &
+                (resultado['status'].str.lower() == 'online')  # Filtra solo los que tienen "status" como "online"
+                ]
                 
                 if not abonados_filtrados.empty:
                     abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados Filtrados')
@@ -234,6 +243,68 @@ def upload_file():
                 return f"Error processing file: {str(e)}"
 
     return render_template('upload.html')
+
+#///////////// comparador de planes
+@app.route('/verificar_velocidad', methods=['GET', 'POST'])
+def verificar_velocidad():
+    global resultado_excel
+    if request.method == 'POST':
+        abonados_file = request.files['abonados']
+        saeplus_file = request.files['saeplus']
+        olt_file = request.files['olt']
+
+        # Leer los archivos cargados
+        abonados = pd.read_excel(abonados_file, usecols=[0])
+        saeplus = pd.read_excel(saeplus_file)
+        olt = procesar_archivo_csv_solo(olt_file)
+
+        # Renombrar columnas
+        abonados = abonados.rename(columns={abonados.columns[0]: 'abonados'})
+        saeplus = saeplus.rename(columns={saeplus.columns[0]: 'abonados'})
+
+        # Unir abonados y saeplus
+        data = pd.merge(abonados, saeplus, on="abonados", how="inner")
+        data['EQUIPO MACO'] = data['EQUIPO MAC'].astype(str).str[-8:]
+
+        if not data.empty and not olt.empty:
+            resultado = pd.merge(data, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+            resultado = resultado.dropna(subset=['EQUIPO MACO'])
+            resultado.columns = resultado.columns.str.lower()
+
+            # Función para extraer la velocidad
+            def extraer_velocidad(detalle):
+                match = re.search(r'(\d+)\s*MG', detalle.upper())
+                if match:
+                    return match.group(1) + 'MG'
+                return None
+
+            # Aplicar la extracción de velocidad
+            resultado['velocidad_detalle'] = resultado['detalle suscripcion'].apply(extraer_velocidad)
+
+            # Filtrar los abonados que no coinciden en velocidad
+            abonados_filtrados = resultado[
+                (resultado['velocidad_detalle'] != resultado['service port download speed'])
+            ]
+
+            columnas_deseadas = [
+                    'abonados', 'documento', 'nombre', 'name',
+                    'detalle suscripcion', 'nombre franquicia', 'equipo maco', 'sn', 'olt', 
+                    'service port upload speed', 'service port download speed'
+                ]
+            abonados_filtrados = abonados_filtrados[columnas_deseadas]
+            output_filtrado = io.BytesIO()
+            with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
+                abonados_filtrados.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
+            output_filtrado.seek(0)
+
+            resultado_excel = output_filtrado
+
+
+            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
+
+
+
+    return render_template('verificar_velocidad.html')
 
 #Descargas /////////////////////////////////////////////////////////////
 @app.route('/descargar_resultado')

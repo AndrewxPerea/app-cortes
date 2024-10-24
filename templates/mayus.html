@@ -1,0 +1,49 @@
+
+    <style>
+        .container {
+            text-align: center;
+        }
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    {% extends 'base.html' %}
+    {% block title %}Mayúsculas{% endblock %} {% block content %}
+<div class="container">
+    <h1 style="color: orangered;">Texto a convertir en  Mayúsculas</h1>
+    <input type="text" id="textoInput" placeholder="Ingresa tu texto aquí" oninput="convertirMayusculas()">
+    <br>
+    <button onclick="mostrarTexto()">Mostrar Texto</button>
+    <p id="textoResultado"></p>
+</div>
+
+<script>
+    function convertirMayusculas() {
+        var input = document.getElementById('textoInput');
+        input.value = input.value.toUpperCase();
+    }
+
+    function mostrarTexto() {
+        var texto = document.getElementById('textoInput').value;
+        document.getElementById('textoResultado').innerText = 'Texto en mayúsculas: ' + texto;
+    }
+</script>
+
+
+{% endblock %}
