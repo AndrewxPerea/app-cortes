@@ -1,49 +1,50 @@
 import pandas as pd
 import re
-from funciones import procesar_archivo_csv_solo
+from funciones import procesar_archivo_csv_solo, procesar_archivo_excel_solo
 
 # Cargar archivos
-abonados = pd.read_excel('abonados.xlsx', usecols=[0])
-saeplus = pd.read_excel('saeplus.xlsx')
+saeplus = procesar_archivo_excel_solo('saeplus.xlsx')
+olt2 = procesar_archivo_csv_solo('olt.csv')
 
-# Renombrar la columna del archivo abonados
-abonados = abonados.rename(columns={abonados.columns[0]: 'abonados'})
-saeplus = saeplus.rename(columns={saeplus.columns[0]: 'abonados'})
-
-# Unir abonados y saeplus por la columna abonados
-data = pd.merge(abonados, saeplus, on="abonados", how="inner")
-data['EQUIPO MACO'] = data['EQUIPO MAC'].astype(str).str[-8:]
-
-# Procesar el archivo CSV de OLT
-olt = procesar_archivo_csv_solo('olt.csv')
+# Filtrar los datos de 'olt' para tener solo los registros "Online"
+olt = olt2[olt2['Status'] == 'Online']
 
 # Fusionar los datos de abonados y OLT
-if not data.empty and not olt.empty:
-    resultado = pd.merge(data, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+if not saeplus.empty and not olt.empty:
+    # Fusionar solo los registros coincidentes
+    resultado = pd.merge(saeplus, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
     resultado = resultado.dropna(subset=['EQUIPO MACO'])
     resultado.columns = resultado.columns.str.lower()
 
-# Función para extraer el valor de velocidad (número y MG) de 'detalle suscripcion'
-def extraer_velocidad(detalle):
-    # Buscar el patrón con o sin espacios entre el número y 'MG'
-    match = re.search(r'(\d+)\s*MG', detalle.upper())  # Convertir el texto a mayúsculas para evitar problemas de may/min
-    if match:
-        return match.group(1) + 'MG'  # Retorna el número encontrado y 'MG' pegados
-    return None  # Retorna None si no encuentra el patrón
+# Fusionar los datos incluyendo los registros no coincidentes para los diferentes registros
+if not saeplus.empty and not olt2.empty:
+    # Confirmar que existen las columnas 'EQUIPO MACO' y 'NSN'
+    if 'EQUIPO MACO' in saeplus.columns and 'NSN' in olt2.columns:
+        # Hacer la fusión con 'indicator=True' para identificar los registros coincidentes
+        resultado = pd.merge(saeplus, olt2, how='outer', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'), indicator=True)
+        
+        if '_merge' in resultado.columns:
+            # Filtrar registros donde 'EQUIPO MACO' y 'NSN' no coinciden
+            resultado_diferente = resultado[resultado['_merge'] != 'both']
+            
+            # Dividir en diferentes DataFrames según la existencia de valores en 'EQUIPO MACO' y 'NSN'
+            resultado_todos_diferentes = resultado_diferente  # Todos los registros diferentes
+            resultado_solo_equipo_mac = resultado_diferente.dropna(subset=['EQUIPO MAC'])  # Solo registros con 'EQUIPO MAC'
+            resultado_solo_nsn = resultado_diferente.dropna(subset=['SN'])  # Solo registros con 'SN'
 
-# Aplicar la extracción de velocidad a la columna 'detalle suscripcion'
-resultado['velocidad_detalle'] = resultado['detalle suscripcion'].apply(extraer_velocidad)
+            # Crear el archivo Excel con las tres hojas
+            with pd.ExcelWriter('olt_diferente.xlsx') as writer:
+                resultado_todos_diferentes.to_excel(writer, sheet_name='Todos los Registros Diferentes', index=False)
+                resultado_solo_equipo_mac.to_excel(writer, sheet_name='Solo EQUIPO MAC', index=False)
+                resultado_solo_nsn.to_excel(writer, sheet_name='Solo NSN', index=False)
+            
+            print("Archivo 'olt_diferente.xlsx' creado con las tres hojas.")
+        else:
+            print("No se encontró la columna '_merge' en el resultado.")
+    else:
+        print("Columnas 'EQUIPO MACO' o 'NSN' faltantes en uno de los DataFrames.")
+else:
+    print("Uno o ambos DataFrames están vacíos.")
 
-# Revisar si algunos valores de 'velocidad_detalle' fueron correctamente extraídos
-print(resultado[['detalle suscripcion', 'velocidad_detalle']].head(10))
 
-# Filtrar los abonados que no coincidan en velocidad entre 'velocidad_detalle' y 'service port download speed'
-abonados_filtrados = resultado[
-    (resultado['velocidad_detalle'] != resultado['service port download speed'])
-]
 
-# Guardar los resultados filtrados en un archivo Excel
-abonados_filtrados.to_excel('fusion_resultado.xlsx', index=False)
-
-# Mostrar los primeros 5 resultados
-print(abonados_filtrados.head(5))

@@ -299,6 +299,54 @@ def verificar_velocidad():
 
     return render_template('verificar_velocidad.html')
 
+
+
+@app.route('/diferentes', methods=['GET', 'POST'])
+def diferentes():
+    if request.method == 'POST':
+        saeplus = request.files['saeplus']
+        olt = request.files['olt']
+
+        saeplus = procesar_archivo_excel_solo(saeplus)
+        olt2 = procesar_archivo_csv_solo(olt)
+        olt = olt2[olt2['Status'] == 'Online']
+
+        if not saeplus.empty and not olt.empty:
+            # Fusionar solo los registros coincidentes
+            resultado = pd.merge(saeplus, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+            resultado= resultado[resultado['Status'] == 'Online']
+            resultado = resultado.dropna(subset=['EQUIPO MACO'])
+            resultado.columns = resultado.columns.str.lower()
+
+        if not saeplus.empty and not olt2.empty:
+            # Confirmar que existen las columnas 'EQUIPO MACO' y 'NSN'
+            if 'EQUIPO MACO' in saeplus.columns and 'NSN' in olt2.columns:
+                # Hacer la fusión con 'indicator=True' para identificar los registros coincidentes
+                resultado = pd.merge(saeplus, olt2, how='outer', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'), indicator=True)
+
+                if '_merge' in resultado.columns:
+                    # Filtrar registros donde 'EQUIPO MACO' y 'NSN' no coinciden
+                    resultado_diferente = resultado[resultado['_merge'] != 'both']
+                    resultado_todos_diferentes = resultado_diferente
+                    resultado_solo_equipo_mac = resultado_diferente.dropna(subset=['EQUIPO MAC'])
+                    resultado_solo_nsn = resultado_diferente.dropna(subset=['SN'])
+
+                    # Crear el archivo Excel en memoria
+                    output_filtrado = io.BytesIO()
+                    with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer:
+                        resultado_todos_diferentes.to_excel(writer, sheet_name='Todos los Registros Diferentes', index=False)
+                        resultado_solo_equipo_mac.to_excel(writer, sheet_name='Solo en saeplus', index=False)
+                        resultado_solo_nsn.to_excel(writer, sheet_name='Solo en olt', index=False)
+
+                    output_filtrado.seek(0)
+
+                    # Redirige a la página de resultados y prepara la descarga
+                    return send_file(output_filtrado, download_name="olt_diferente.xlsx", as_attachment=True)
+
+    return render_template('diferentes.html')
+
+
+
 #Descargas /////////////////////////////////////////////////////////////
 @app.route('/descargar_resultado')
 def descargar_resultado():

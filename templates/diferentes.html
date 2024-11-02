@@ -1,0 +1,47 @@
+<style>
+    .center-screen  {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 80vh;
+    }
+
+    .navbar-title {
+        font-size: 50px;
+    }
+    .center-screen-2 {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 30vh;
+        /* Altura del viewport */
+    }
+    body {
+        background-color: #f2f2f2;
+    }
+</style>
+{% extends 'base.html' %}
+
+{% block title %}No Coinciden{% endblock %} {% block content %}
+<div class="container center-screen">
+    <div class="row">
+        <div class="col">
+            <h1>Equipos que no coinciden</h1>
+            <form action="/diferentes" method="post" enctype="multipart/form-data">
+                <div class="input-group mb-3">
+                    <label class="input-group-text" for="saeplus">Archivo de Abonados (Excel)</label>
+                    <input type="file" class="form-control" id="saeplus" name="saeplus">
+                </div>
+                <div class="input-group mb-3">
+                    <label class="input-group-text" for="olt">Archivo de Abonados en SmartOlt (CSV)</label>
+                    <input type="file" class="form-control" id="olt" name="olt">
+                </div>
+                <input type="submit" class="btn btn-outline-success" value="Procesar Archivos">
+            </form>
+        </div>
+        
+    </div>
+    
+
+</div>
+{% endblock %}

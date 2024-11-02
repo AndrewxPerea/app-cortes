@@ -6,7 +6,7 @@ def procesar_excel(archivo_excel):
 
     # Definir el mapeo de valores del plan
     valor_plan_mapping = {
-        '100 MG': 106000,
+        '150 MG': 106000,
         '100 MG PA 5': 117000,
         '100 MG PA 6': 128000,
         '15 MG': 71000,
@@ -14,7 +14,7 @@ def procesar_excel(archivo_excel):
         '200 MG PA 5': 215000,
         '300 MG': 314000,
         '400 MG': 418000,
-        '50 MG': 77000,
+        '100 MG': 77000,
         '50 MG PA 5': 88000,
         'SOLO @ 50 MG': 64000,
         '30 MG': 70000,
