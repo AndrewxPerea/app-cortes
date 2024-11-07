@@ -1,25 +1,13 @@
- <style>
-        .center-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 80vh;
-        }
-        .navbar-title {
-            font-size: 50px;
-        }
-        body {
-            background-color: #f2f2f2;
-        }
-    </style>
+
 {% extends 'base.html' %}
 {% block title %}Desactivados{% endblock %}
 {% block content %}
+   
     <div class="container center-screen">
         <div class="row">
             <div class="col">
                 <h1>Auditoria de equipos que no estan en estatus Activo o por Instalar</h1>
-                <form action="/noactivos" method="post" enctype="multipart/form-data">
+                <form id="resultForm" action="/noactivos" method="post" enctype="multipart/form-data">
                     <div class="input-group mb-3">
                         <label class="input-group-text" for="abonados_solointernet">Archivo de Abonados (Excel)</label>
                         <input type="file" class="form-control" id="abonados_solointernet" name="abonados_solointernet">
@@ -61,7 +49,7 @@
                                 </li>
                             </ul>
                         </div>
-                    </div>
+                    </div>                 
                 </div>
             </div>
         </div>

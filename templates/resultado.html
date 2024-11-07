@@ -1,17 +1,4 @@
- <style>
-        .center-screen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 80vh;
-        }
-        .navbar-title {
-            font-size: 50px;
-        }
-        body {
-            background-color: #f2f2f2;
-        }
-    </style>
+
 
 {% extends 'base.html' %}
 
@@ -21,7 +8,7 @@
         <h1>Resultado del Procesamiento</h1>
         <div class="text-center">
             <a href="/" class="btn btn-outline-success">Pagina Principa</a>
-            <a href="/descargar_resultado" class="btn btn-outline-primary">Descargar Excel</a>
+            <a id="resultForm" href="/descargar_resultado" class="btn btn-outline-primary">Descargar Excel</a>
         </div>
         <table class="table table-striped">
             <thead class="thead-dark">

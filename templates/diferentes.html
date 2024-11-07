@@ -1,24 +1,4 @@
-<style>
-    .center-screen  {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 80vh;
-    }
 
-    .navbar-title {
-        font-size: 50px;
-    }
-    .center-screen-2 {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 30vh;
-        /* Altura del viewport */
-    }
-    body {
-        background-color: #f2f2f2;
-    }
 </style>
 {% extends 'base.html' %}
 
@@ -27,7 +7,7 @@
     <div class="row">
         <div class="col">
             <h1>Equipos que no coinciden</h1>
-            <form action="/diferentes" method="post" enctype="multipart/form-data">
+            <form  id="resultForm" action="/diferentes" method="post" enctype="multipart/form-data">
                 <div class="input-group mb-3">
                     <label class="input-group-text" for="saeplus">Archivo de Abonados (Excel)</label>
                     <input type="file" class="form-control" id="saeplus" name="saeplus">

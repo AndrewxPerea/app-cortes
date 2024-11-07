@@ -1,10 +1,9 @@
 from flask import  render_template
 import pandas as pd
+import numpy as np
+from datetime import datetime
 
-def procesar_excel(archivo_excel):
-    df = pd.read_excel(archivo_excel)
-
-    # Definir el mapeo de valores del plan
+def obtener_valor_plan(plan):
     valor_plan_mapping = {
         '150 MG': 106000,
         '100 MG PA 5': 117000,
@@ -20,29 +19,26 @@ def procesar_excel(archivo_excel):
         '30 MG': 70000,
         '70 MG': 87000
     }
+    return valor_plan_mapping.get(plan, None)
 
-    # Procesar cada fila
-    df['Valor Plan'] = df['Plan Nuevo'].map(valor_plan_mapping)
-    df['Nombre Cliente'] = df['Nombre Cliente'].astype(str)
-    df['Nombre Cliente'] = df['Nombre Cliente'].apply(lambda x: x.split()[0].capitalize())
+def procesar_excel(archivo_excel):
+    df = pd.read_excel(archivo_excel)
+
+    df['Valor Plan'] = df['Plan Nuevo'].apply(obtener_valor_plan)
+    df['Nombre Cliente'] = df['Nombre Cliente'].astype(str).apply(lambda x: x.split()[0].capitalize())
     df['Plan Nuevo'] = df['Plan Nuevo'].astype(str)
 
-    # Generar el mensaje personalizado
-    df['Mensaje'] = df.apply(lambda row: (
-            f"Estimad@ {row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a "
-            f"{row['Plan Nuevo']}bps de solo internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
-            "Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
-            if '@' in row['Plan Nuevo'] else
-            f"Estimad@ {row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a "
-            f"{row['Plan Nuevo']}bps de internet, por un valor mensual de $ {row['Valor Plan']} ha sido efectuado exitosamente. "
-            "Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
-        ), axis=1)
+    # Generar el mensaje de manera eficiente con una condición vectorizada
+    df['Mensaje'] = np.where(
+        df['Plan Nuevo'].str.contains('@'),
+        f"Estimad@ {df['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a {df['Plan Nuevo']}bps de solo internet, por un valor mensual de $ {df['Valor Plan']} ha sido efectuado exitosamente. Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!",
+        f"Estimad@ {df['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a {df['Plan Nuevo']}bps de internet, por un valor mensual de $ {df['Valor Plan']} ha sido efectuado exitosamente. Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
+    )
 
-    # Guardar el resultado en un nuevo archivo Excel
-    output_file = "resultado_procesado.xlsx"
+    output_file = f"resultado_procesado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     df.to_excel(output_file, index=False)
-
     return output_file
+
 
 
 def procesar_archivo_csv_solo(archivo):

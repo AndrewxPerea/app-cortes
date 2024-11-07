@@ -1,24 +1,4 @@
-    <style>
-      /* Estilo personalizado para centrar el contenido verticalmente */
-      .center-screen {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 50vh; /* Altura del viewport */
-      }
-      .center-screen-2 {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 20vh; /* Altura del viewport */
-      }
-      .navbar-title {
-        font-size: 50px; /* Puedes ajustar este valor según tus necesidades */
-      }
-      body {
-        background-color: #f2f2f2; /* Color de fondo gris claro */
-      }
-    </style>
+  
 
     {% extends 'base.html' %}
 
@@ -32,7 +12,7 @@
         
           <h1>Auditoria de Reconexiones</h1>
 
-          <form action="/procesar" method="post" enctype="multipart/form-data">
+          <form id="resultForm" action="/procesar" method="post" enctype="multipart/form-data">
             <div class="input-group mb-3">
               <label class="input-group-text" for="abonados"
                 >Archivo de Abonados (Abonados SaePlus)</label

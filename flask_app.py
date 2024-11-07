@@ -74,9 +74,11 @@ def solointernet():
     if request.method == 'POST':
         abonados_file = request.files['abonados_solointernet']
         cortes_file = request.files['olt']
-
-        df_abonados = procesar_archivo_excel_solo(abonados_file)
-        df_cortes = procesar_archivo_csv_solo(cortes_file)
+        try:
+            df_abonados = procesar_archivo_excel_solo(abonados_file)
+            df_cortes = procesar_archivo_csv_solo(cortes_file)
+        except Exception as e:
+            return render_template('error.html', error=str(e))
 
         if not df_abonados.empty and not df_cortes.empty:
             resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
@@ -85,7 +87,7 @@ def solointernet():
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                resultado.to_excel(writer, index=False, sheet_name='Resultado')
+                resultado.to_excel(writer, index=False, sheet_name='Todos los abonados')
 
                 abonados_filtrados = resultado[
                     (resultado['detalle suscripcion'].str.contains('@', na=False)) & 
@@ -98,13 +100,12 @@ def solointernet():
             ]
                 abonados_filtrados = abonados_filtrados[columnas_deseadas]
                 if not abonados_filtrados.empty:
-                    abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados Filtrados')
+                    abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados solo @ Con catv')
 
             output.seek(0)
             resultado_excel = output
 
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
-
     return render_template('solointernet.html')
 
 #No activos ___________________________________________________________________
@@ -117,7 +118,6 @@ def noactivos():
         cortes_file = request.files['olt']
 
         try:
-
             df_abonados = procesar_archivo_excel_solo(abonados_file)
             df_cortes = procesar_archivo_csv_solo(cortes_file)
         except Exception as e:
@@ -155,7 +155,8 @@ def noactivos():
 
             output.seek(0)
             resultado_excel = output
-
+            import time
+            time.sleep(3)
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
 
     return render_template('noactivos.html')
@@ -169,10 +170,12 @@ def cortes():
         abonados_file = request.files['abonados']
         cortes_file = request.files['cortes']
         sae_file = request.files['asaeplus']
-        
-        df_cortes = procesar_archivo_excel_solo(abonados_file)
-        df_olt = procesar_archivo_csv_solo(cortes_file)
-        df_saeplus = procesar_archivo_excel_solo(sae_file)
+        try:
+            df_cortes = procesar_archivo_excel_solo(abonados_file)
+            df_olt = procesar_archivo_csv_solo(cortes_file)
+            df_saeplus = procesar_archivo_excel_solo(sae_file)
+        except Exception as e:
+            return render_template('error.html', error=str(e))
 
         if not df_cortes.empty and not df_saeplus.empty and not df_olt.empty:
             resultado = pd.merge( df_saeplus, df_cortes, how='right', left_on='N° Abonado', right_on='N° Abonado')
@@ -251,11 +254,12 @@ def verificar_velocidad():
     if request.method == 'POST':
         saeplus_file = request.files['saeplus']
         olt_file = request.files['olt']
-
-        # Leer los archivos cargados
-        saeplus = procesar_archivo_excel_solo(saeplus_file)
-        olt = procesar_archivo_csv_solo(olt_file)
-
+        try:
+            # Leer los archivos cargados
+            saeplus = procesar_archivo_excel_solo(saeplus_file)
+            olt = procesar_archivo_csv_solo(olt_file)
+        except Exception as e:
+         return render_template('error.html', error=str(e))
 
 
 
@@ -306,10 +310,12 @@ def diferentes():
     if request.method == 'POST':
         saeplus = request.files['saeplus']
         olt = request.files['olt']
-
-        saeplus = procesar_archivo_excel_solo(saeplus)
-        olt2 = procesar_archivo_csv_solo(olt)
-        olt = olt2[olt2['Status'] == 'Online']
+        try:
+            saeplus = procesar_archivo_excel_solo(saeplus)
+            olt2 = procesar_archivo_csv_solo(olt)
+            olt = olt2[olt2['Status'] == 'Online']
+        except Exception as e:
+            return render_template('error.html', error=str(e))
 
         if not saeplus.empty and not olt.empty:
             # Fusionar solo los registros coincidentes
