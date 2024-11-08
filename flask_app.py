@@ -191,8 +191,8 @@ def cortes():
             resultado_filtrado = resultado[columnas_deseadas]
             resultado_filtrado = resultado_filtrado [
                 (resultado['observaciones'].isna()) &
-                (resultado['estatus_x'] == 'CORTADO') & 
-                ((resultado['catv'] == 'Enabled') |
+                (resultado['estatus_x'] == 'ACTIVO') & 
+                ((resultado['catv'] != 'Disabled') |
                 (resultado['administrative status'] == 'Enabled'))
             ]
             output_filtrado = io.BytesIO()
