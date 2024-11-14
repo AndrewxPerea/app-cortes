@@ -37,7 +37,7 @@ def procesar_archivos():
     cortes_file = request.files['cortes']
 
     try:
-        df_cortes = pd.read_excel(cortes_file, usecols=[0, 1, 2, 3, 4])
+        df_cortes = pd.read_excel(cortes_file)
         df_abonados = pd.read_excel(abonados_file)
     except Exception as e:
         return render_template('error.html', error=str(e))
@@ -49,10 +49,10 @@ def procesar_archivos():
 
     df_resultado = pd.merge(df_cortes, df_abonados, on="abonados", how="inner")
 
-    df_resultado = df_resultado[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus']]
+    df_resultado = df_resultado[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus_y']]
     df_resultado = df_resultado[(df_resultado['observaciones'].isna() | (df_resultado['observaciones'] == '')) & 
-                                (df_resultado['estatus'] == 'ACTIVO')]
-
+                                (df_resultado['estatus_y'] == 'ACTIVO')]
+    print(df_resultado.columns)
     if df_resultado.empty:
         return render_template('exitoso.html')
 
@@ -62,7 +62,8 @@ def procesar_archivos():
     output.seek(0)
 
     resultado_excel = output
-
+    import time
+    time.sleep(3)
     return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns)
 
 #solo @ ________________________________________________________________________
@@ -104,7 +105,8 @@ def solointernet():
 
             output.seek(0)
             resultado_excel = output
-
+            import time
+            time.sleep(3)
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
     return render_template('solointernet.html')
 
@@ -201,7 +203,8 @@ def cortes():
             output_filtrado.seek(0)
 
             resultado_excel = output_filtrado
-            
+            import time
+            time.sleep(3)
 
             return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns)
 
@@ -244,7 +247,8 @@ def upload_file():
                 # Asegurarse de eliminar el archivo si ocurre un error
                 os.remove(file_path)
                 return f"Error processing file: {str(e)}"
-
+            import time
+            time.sleep(3)
     return render_template('upload.html')
 
 #///////////// comparador de planes
@@ -259,9 +263,7 @@ def verificar_velocidad():
             saeplus = procesar_archivo_excel_solo(saeplus_file)
             olt = procesar_archivo_csv_solo(olt_file)
         except Exception as e:
-         return render_template('error.html', error=str(e))
-
-
+            return render_template('error.html', error=str(e))
 
         if not saeplus.empty and not olt.empty:
             resultado = pd.merge(saeplus, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_OLT'))
@@ -295,8 +297,8 @@ def verificar_velocidad():
             output_filtrado.seek(0)
 
             resultado_excel = output_filtrado
-
-
+            import time
+            time.sleep(3)
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
 
 
@@ -345,7 +347,8 @@ def diferentes():
                         resultado_solo_nsn.to_excel(writer, sheet_name='Solo en olt', index=False)
 
                     output_filtrado.seek(0)
-
+                    import time
+                    time.sleep(3)
                     # Redirige a la página de resultados y prepara la descarga
                     return send_file(output_filtrado, download_name="olt_diferente.xlsx", as_attachment=True)
 
