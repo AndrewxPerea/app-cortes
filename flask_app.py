@@ -4,6 +4,7 @@ import pandas as pd
 import io
 from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
 import re
+import time
 
 
 app = Flask(__name__)
@@ -52,7 +53,7 @@ def procesar_archivos():
     df_resultado = df_resultado[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus_y']]
     df_resultado = df_resultado[(df_resultado['observaciones'].isna() | (df_resultado['observaciones'] == '')) & 
                                 (df_resultado['estatus_y'] == 'ACTIVO')]
-    print(df_resultado.columns)
+    
     if df_resultado.empty:
         return render_template('exitoso.html')
 
@@ -62,7 +63,7 @@ def procesar_archivos():
     output.seek(0)
 
     resultado_excel = output
-    import time
+    
     time.sleep(3)
     return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns)
 
@@ -105,7 +106,7 @@ def solointernet():
 
             output.seek(0)
             resultado_excel = output
-            import time
+          
             time.sleep(3)
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
     return render_template('solointernet.html')
@@ -157,7 +158,7 @@ def noactivos():
 
             output.seek(0)
             resultado_excel = output
-            import time
+          
             time.sleep(3)
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
 
@@ -203,7 +204,7 @@ def cortes():
             output_filtrado.seek(0)
 
             resultado_excel = output_filtrado
-            import time
+     
             time.sleep(3)
 
             return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns)
@@ -247,11 +248,11 @@ def upload_file():
                 # Asegurarse de eliminar el archivo si ocurre un error
                 os.remove(file_path)
                 return f"Error processing file: {str(e)}"
-            import time
-            time.sleep(3)
+       
+        time.sleep(3)
     return render_template('upload.html')
 
-#///////////// comparador de planes
+# comparador de planes
 @app.route('/verificar_velocidad', methods=['GET', 'POST'])
 def verificar_velocidad():
     global resultado_excel
@@ -297,7 +298,7 @@ def verificar_velocidad():
             output_filtrado.seek(0)
 
             resultado_excel = output_filtrado
-            import time
+        
             time.sleep(3)
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
 
