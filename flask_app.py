@@ -56,16 +56,21 @@ def procesar_archivos():
     
     if df_resultado.empty:
         return render_template('exitoso.html')
+    
+    # Número de casos encontrados
+    num_casos = df_resultado.shape[0]
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_resultado.to_excel(writer, index=False, sheet_name='Resultado')
     output.seek(0)
-
+    
+    
+    
     resultado_excel = output
     
     time.sleep(3)
-    return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns)
+    return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns, num_casos=num_casos)
 
 #solo @ ________________________________________________________________________
 
@@ -73,6 +78,7 @@ def procesar_archivos():
 @app.route('/solointernet', methods=['GET', 'POST'])
 def solointernet():
     global resultado_excel
+    
     if request.method == 'POST':
         abonados_file = request.files['abonados_solointernet']
         cortes_file = request.files['olt']
@@ -106,9 +112,11 @@ def solointernet():
 
             output.seek(0)
             resultado_excel = output
+           # Número de casos encontrados
+            num_casos =  abonados_filtrados.shape[0]
           
             time.sleep(3)
-            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
+            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns, num_casos=num_casos)
     return render_template('solointernet.html')
 
 #No activos ___________________________________________________________________
@@ -130,7 +138,7 @@ def noactivos():
             resultado = pd.merge(df_abonados, df_cortes, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
             resultado = resultado.dropna(subset=['EQUIPO MACO'])
             resultado.columns = resultado.columns.str.lower()
-
+            
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 resultado.to_excel(writer, index=False, sheet_name='Resultado')
@@ -154,13 +162,14 @@ def noactivos():
                 
                 if not abonados_filtrados.empty:
                     abonados_filtrados.to_excel(writer, index=False, sheet_name='Abonados Filtrados')
-                
+              # Número de casos encontrados
+            num_casos =  abonados_filtrados.shape[0]             
 
             output.seek(0)
             resultado_excel = output
           
             time.sleep(3)
-            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
+            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns, num_casos=num_casos)
 
     return render_template('noactivos.html')
 #Cortes____________________________________________________________________________________________
@@ -186,28 +195,32 @@ def cortes():
             resultado =pd.merge(resultado, df_olt, left_on='EQUIPO MACO_y', right_on='NSN', suffixes=('_abonados', '_cortes'))
             resultado = resultado.dropna(subset=['EQUIPO MACO_y'])
             resultado.columns = resultado.columns.str.lower()
+            
             columnas_deseadas = [
                     'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
                     'estatus_x', 'observaciones', 'sn', 'olt', 
-                    'catv', 'administrative status'
+                    'catv', 'administrative status' ,'status'
                 ]
+            
             resultado_filtrado = resultado[columnas_deseadas]
             resultado_filtrado = resultado_filtrado [
                 (resultado['observaciones'].isna()) &
                 (resultado['estatus_x'] == 'ACTIVO') & 
-                ((resultado['catv'] != 'Disabled') |
+                ((resultado['status'] == 'Online') |
+                 (resultado['catv'] != 'Disabled') |
                 (resultado['administrative status'] == 'Enabled'))
             ]
+            
             output_filtrado = io.BytesIO()
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 resultado_filtrado.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
             output_filtrado.seek(0)
-
+            num_casos = resultado_filtrado.shape[0]
             resultado_excel = output_filtrado
      
             time.sleep(3)
 
-            return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns)
+            return render_template('resultado.html', data=resultado_filtrado.to_dict(orient='records'), columns=resultado_filtrado.columns, num_casos=num_casos)
 
     return render_template('cortes.html')
 
@@ -296,13 +309,14 @@ def verificar_velocidad():
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 abonados_filtrados.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
             output_filtrado.seek(0)
-
+            num_casos = output_filtrado.shape[0]
             resultado_excel = output_filtrado
         
             time.sleep(3)
-            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns)
+            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns, num_casos=num_casos)
 
-
+           # Número de casos encontrados
+            
 
     return render_template('verificar_velocidad.html')
 
@@ -346,7 +360,8 @@ def diferentes():
                         resultado_todos_diferentes.to_excel(writer, sheet_name='Todos los Registros Diferentes', index=False)
                         resultado_solo_equipo_mac.to_excel(writer, sheet_name='Solo en saeplus', index=False)
                         resultado_solo_nsn.to_excel(writer, sheet_name='Solo en olt', index=False)
-
+                               # Número de casos encontrados
+                    
                     output_filtrado.seek(0)
                     import time
                     time.sleep(3)
