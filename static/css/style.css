@@ -59,14 +59,7 @@ body {
     display: none;
 }
 
-.spinner-luminous {
-    width: 80px;
-    height: 80px;
-    border: 8px solid rgba(255, 255, 255, 0.3);
-    border-top: 8px solid #3498db;
-    border-radius: 50%;
-    animation: spin 1.5s linear infinite, glow 1.5s ease-in-out infinite;
-}
+
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -117,3 +110,6 @@ body {
   @keyframes l5-0{ 
     100% {background-size:120% 100%,20% 100%}
   }
+
+
+  

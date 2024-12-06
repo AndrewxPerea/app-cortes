@@ -6,7 +6,6 @@ from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archiv
 import re
 import time
 
-
 app = Flask(__name__)
 
 # Variable global para almacenar el archivo Excel resultante
@@ -283,6 +282,7 @@ def verificar_velocidad():
             resultado = pd.merge(saeplus, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_OLT'))
             resultado = resultado.dropna(subset=['EQUIPO MACO'])
             resultado.columns = resultado.columns.str.lower()
+          
 
             # Función para extraer la velocidad
             def extraer_velocidad(detalle):
@@ -296,7 +296,8 @@ def verificar_velocidad():
 
             # Filtrar los abonados que no coinciden en velocidad
             abonados_filtrados = resultado[
-                (resultado['velocidad_detalle'] != resultado['service port download speed'])
+                (resultado['velocidad_detalle'] != resultado['service port download speed']) &
+                 (resultado['estatus'] == 'ACTIVO')
             ]
 
             columnas_deseadas = [
@@ -309,7 +310,7 @@ def verificar_velocidad():
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 abonados_filtrados.to_excel(writer_filtrado, index=False, sheet_name='Resultado Filtrado')
             output_filtrado.seek(0)
-            num_casos = output_filtrado.shape[0]
+            num_casos =  abonados_filtrados.shape[0]
             resultado_excel = output_filtrado
         
             time.sleep(3)
@@ -329,17 +330,9 @@ def diferentes():
         olt = request.files['olt']
         try:
             saeplus = procesar_archivo_excel_solo(saeplus)
-            olt2 = procesar_archivo_csv_solo(olt)
-            olt = olt2[olt2['Status'] == 'Online']
+            olt2 = procesar_archivo_csv_solo(olt)           # olt = olt2[olt2['Status'] == 'Online']
         except Exception as e:
             return render_template('error.html', error=str(e))
-
-        if not saeplus.empty and not olt.empty:
-            # Fusionar solo los registros coincidentes
-            resultado = pd.merge(saeplus, olt, how='right', left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
-            resultado= resultado[resultado['Status'] == 'Online']
-            resultado = resultado.dropna(subset=['EQUIPO MACO'])
-            resultado.columns = resultado.columns.str.lower()
 
         if not saeplus.empty and not olt2.empty:
             # Confirmar que existen las columnas 'EQUIPO MACO' y 'NSN'
@@ -350,9 +343,12 @@ def diferentes():
                 if '_merge' in resultado.columns:
                     # Filtrar registros donde 'EQUIPO MACO' y 'NSN' no coinciden
                     resultado_diferente = resultado[resultado['_merge'] != 'both']
-                    resultado_todos_diferentes = resultado_diferente
+
+                    resultado_todos_diferentes = resultado_diferente.dropna(axis=1, how='all')
                     resultado_solo_equipo_mac = resultado_diferente.dropna(subset=['EQUIPO MAC'])
+                    resultado_solo_equipo_mac = resultado_solo_equipo_mac.dropna(axis=1, how='all')
                     resultado_solo_nsn = resultado_diferente.dropna(subset=['SN'])
+                    resultado_solo_nsn = resultado_solo_nsn.dropna(axis=1, how='all')
 
                     # Crear el archivo Excel en memoria
                     output_filtrado = io.BytesIO()
@@ -369,6 +365,7 @@ def diferentes():
                     return send_file(output_filtrado, download_name="olt_diferente.xlsx", as_attachment=True)
 
     return render_template('diferentes.html')
+
 
 
 

@@ -17,8 +17,8 @@ def obtener_valor_plan(plan):
         '50 MG PA 5': 88000,
         'SOLO @ 50 MG': 64000,
         '30 MG': 70000,
-        '70 MG': 87000
-    }
+        '70 MG': 87000,
+        '20 MG': 54000,    }
     return valor_plan_mapping.get(plan, None)
 
 def procesar_excel(archivo_excel):
