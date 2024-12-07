@@ -20,6 +20,9 @@ def index():
 @app.route('/mayuscula')
 def mayuscula():
     return render_template('mayus.html')
+@app.route('/tutoriales')
+def tutoriales():
+    return render_template('tutoriales.html')
 
 
 
