@@ -207,7 +207,7 @@ def cortes():
             resultado_filtrado = resultado[columnas_deseadas]
             resultado_filtrado = resultado_filtrado [
                 (resultado['observaciones'].isna()) &
-                (resultado['estatus_x'] == 'ACTIVO') & 
+                (resultado['estatus_x'] != 'ACTIVO') & 
                 ((resultado['status'] == 'Online') |
                  (resultado['catv'] != 'Disabled') |
                 (resultado['administrative status'] == 'Enabled'))
@@ -365,7 +365,7 @@ def diferentes():
                     import time
                     time.sleep(3)
                     # Redirige a la página de resultados y prepara la descarga
-                    return send_file(output_filtrado, download_name="olt_diferente.xlsx", as_attachment=True)
+                    return send_file( output_filtrado, download_name="olt_diferente.xlsx", as_attachment=True)
 
     return render_template('diferentes.html')
 

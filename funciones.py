@@ -19,7 +19,19 @@ def obtener_valor_plan(plan):
         '30 MG': 70000,
         '70 MG': 87000,
         '20 MG': 54000,    }
-    return valor_plan_mapping.get(plan, None)
+    return valor_plan_mapping.get(plan, 'Plan no encontrado')
+
+def generar_mensaje(row):
+    if '@' in row['Plan Nuevo']:
+        return (f"Estimad@ {row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud "
+                f"de cambio de plan a {row['Plan Nuevo']}bps de solo internet, por un valor mensual "
+                f"de $ {row['Valor Plan']} ha sido efectuado exitosamente. Con esto, procedemos a finalizar "
+                f"tu petición. ¡Te deseamos un feliz día!")
+    else:
+        return (f"Estimad@ {row['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud "
+                f"de cambio de plan a {row['Plan Nuevo']}bps de internet, por un valor mensual "
+                f"de $ {row['Valor Plan']} ha sido efectuado exitosamente. Con esto, procedemos a finalizar "
+                f"tu petición. ¡Te deseamos un feliz día!")
 
 def procesar_excel(archivo_excel):
     df = pd.read_excel(archivo_excel)
@@ -28,16 +40,14 @@ def procesar_excel(archivo_excel):
     df['Nombre Cliente'] = df['Nombre Cliente'].astype(str).apply(lambda x: x.split()[0].capitalize())
     df['Plan Nuevo'] = df['Plan Nuevo'].astype(str)
 
-    # Generar el mensaje de manera eficiente con una condición vectorizada
-    df['Mensaje'] = np.where(
-        df['Plan Nuevo'].str.contains('@'),
-        f"Estimad@ {df['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a {df['Plan Nuevo']}bps de solo internet, por un valor mensual de $ {df['Valor Plan']} ha sido efectuado exitosamente. Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!",
-        f"Estimad@ {df['Nombre Cliente']}, TuCable te informa que el estado de tu solicitud de cambio de plan a {df['Plan Nuevo']}bps de internet, por un valor mensual de $ {df['Valor Plan']} ha sido efectuado exitosamente. Con esto, procedemos a finalizar tu petición. ¡Te deseamos un feliz día!"
-    )
+    # Generar los mensajes
+    df['Mensaje'] = df.apply(generar_mensaje, axis=1)
 
+    # Guardar el resultado en un archivo Excel
     output_file = f"resultado_procesado_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     df.to_excel(output_file, index=False)
     return output_file
+
 
 
 
