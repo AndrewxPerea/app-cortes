@@ -1,5 +1,4 @@
   
-
     {% extends 'base.html' %}
 
     {% block title %}Reconexiones{% endblock %}
@@ -12,16 +11,16 @@
         
           <h1>Auditoria de Reconexiones</h1>
 
-          <form id="resultForm" action="/procesar" method="post" enctype="multipart/form-data">
+          <form id="resultForm" action="/auditoria_reconexiones" method="post" enctype="multipart/form-data">
             <div class="input-group mb-3">
-              <label class="input-group-text" for="abonados"
+              <label class="input-group-text" for="SaePlus"
                 >Archivo de Abonados (Abonados SaePlus)</label
               >
               <input
                 type="file"
                 class="form-control"
-                id="abonados"
-                name="abonados"
+                id="saeplus"
+                name="saeplus"
                 placeholder=""
                 aria-label=""
               />
@@ -36,6 +35,30 @@
                 class="form-control"
                 id="drive"
                 name="drive"
+              />
+            </div>
+            <br />
+            <div class="input-group mb-3">
+              <label class="input-group-text" for="epayco"
+                >Archivo Abonados Epayco(Epayco):</label
+              >
+              <input
+                type="file"
+                class="form-control"
+                id="epayco"
+                name="epayco"
+              />
+            </div>
+            <br />
+            <div class="input-group mb-3">
+              <label class="input-group-text" for="smartolt"
+                >Archivo de abonados Smartolt(Smartolt):</label
+              >
+              <input
+                type="file"
+                class="form-control"
+                id="smartolt"
+                name="smartolt"
               />
             </div>
             <br />

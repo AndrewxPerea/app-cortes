@@ -2,11 +2,16 @@ import os
 from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import io
-from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo
+from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo, normalizar_columnas
 import re
 import time
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Variable global para almacenar el archivo Excel resultante
 resultado_excel = None
@@ -45,8 +50,8 @@ def procesar_archivos():
     except Exception as e:
         return render_template('error.html', error=str(e))
 
-    df_cortes = df_cortes.rename(columns={df_cortes.columns[0]: 'Abonados'})
-    df_abonados = df_abonados.rename(columns={df_abonados.columns[0]: 'Abonados'})
+    df_cortes = normalizar_columnas(df_cortes, 'Abonados')
+    df_abonados = normalizar_columnas(df_abonados, 'Abonados')
     df_cortes.columns = df_cortes.columns.str.lower()
     df_abonados.columns = df_abonados.columns.str.lower()
 
@@ -148,8 +153,8 @@ def noactivos():
                 abonados_filtrados = resultado[
                 (resultado['estatus'].str.lower().isin(['activo', 'por instalar']) == False) &  # Filtra los que no sean "estatus activo" o "estatus por instalar"
                 ((resultado['administrative status'].str.lower() == 'enabled') |
-                (resultado['catv'].str.lower() == 'enabled')) &
-                (resultado['status'].str.lower() == 'online')  # Filtra solo los que tienen "status" como "online"
+                (resultado['catv'].str.lower() == 'enabled')  |
+                (resultado['status'].str.lower() == 'online'))    # Filtra solo los que tienen "status" como "online"
                 ]
                 
                 if not abonados_filtrados.empty:
@@ -201,17 +206,18 @@ def cortes():
             columnas_deseadas = [
                     'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
                     'estatus_x', 'observaciones', 'sn', 'olt', 
-                    'catv', 'administrative status' ,'status'
+                    'catv', 'administrative status' ,'status', 'ingeniero'
                 ]
             
             resultado_filtrado = resultado[columnas_deseadas]
             resultado_filtrado = resultado_filtrado [
-                (resultado['observaciones'].isna()) &
-                (resultado['estatus_x'] != 'ACTIVO') & 
-                ((resultado['status'] == 'Online') |
-                 (resultado['catv'] != 'Disabled') |
-                (resultado['administrative status'] == 'Enabled'))
+                (resultado_filtrado['observaciones'].isna()) &
+               (resultado_filtrado['estatus_x'] != 'ACTIVO')   &
+                ((resultado_filtrado['status'] == 'Online') |
+                 (resultado_filtrado['catv'] != 'Disabled') |
+                (resultado_filtrado['administrative status'] == 'Enabled'))
             ]
+            resultado_filtrado = resultado_filtrado.dropna(subset=['estatus_x'])
             
             output_filtrado = io.BytesIO()
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
@@ -306,7 +312,7 @@ def verificar_velocidad():
             columnas_deseadas = [
                     'n° abonado', 'documento', 'nombre', 'name','estatus',
                     'detalle suscripcion', 'nombre franquicia', 'equipo maco', 'sn', 'olt', 
-                    'service port upload speed', 'service port download speed'
+                    'service port upload speed', 'service port download speed', 'tipo tecnología.'
                 ]
             abonados_filtrados = abonados_filtrados[columnas_deseadas]
             output_filtrado = io.BytesIO()
@@ -328,12 +334,14 @@ def verificar_velocidad():
 
 @app.route('/diferentes', methods=['GET', 'POST'])
 def diferentes():
+    global resultado_excel  # Variable global para almacenar el archivo generado
+
     if request.method == 'POST':
         saeplus = request.files['saeplus']
         olt = request.files['olt']
         try:
             saeplus = procesar_archivo_excel_solo(saeplus)
-            olt2 = procesar_archivo_csv_solo(olt)           # olt = olt2[olt2['Status'] == 'Online']
+            olt2 = procesar_archivo_csv_solo(olt)
         except Exception as e:
             return render_template('error.html', error=str(e))
 
@@ -348,9 +356,9 @@ def diferentes():
                     resultado_diferente = resultado[resultado['_merge'] != 'both']
 
                     resultado_todos_diferentes = resultado_diferente.dropna(axis=1, how='all')
-                    resultado_solo_equipo_mac = resultado_diferente.dropna(subset=['EQUIPO MAC'])
+                    resultado_solo_equipo_mac = resultado_diferente.dropna(subset=['EQUIPO MACO'])
                     resultado_solo_equipo_mac = resultado_solo_equipo_mac.dropna(axis=1, how='all')
-                    resultado_solo_nsn = resultado_diferente.dropna(subset=['SN'])
+                    resultado_solo_nsn = resultado_diferente.dropna(subset=['NSN'])
                     resultado_solo_nsn = resultado_solo_nsn.dropna(axis=1, how='all')
 
                     # Crear el archivo Excel en memoria
@@ -359,18 +367,102 @@ def diferentes():
                         resultado_todos_diferentes.to_excel(writer, sheet_name='Todos los Registros Diferentes', index=False)
                         resultado_solo_equipo_mac.to_excel(writer, sheet_name='Solo en saeplus', index=False)
                         resultado_solo_nsn.to_excel(writer, sheet_name='Solo en olt', index=False)
-                               # Número de casos encontrados
-                    
+
                     output_filtrado.seek(0)
-                    import time
-                    time.sleep(3)
-                    # Redirige a la página de resultados y prepara la descarga
-                    return send_file( output_filtrado, download_name="olt_diferente.xlsx", as_attachment=True)
+                    resultado_excel = output_filtrado  # Guardar el archivo en la variable global
+                    print("Archivo generado correctamente")
+
+                    # Redirigir a la página de resultados
+                    num_casos = resultado_diferente.shape[0]  # Número de casos encontrados
+                    return render_template('resultado.html', data=resultado_diferente.to_dict(orient='records'), columns=resultado_diferente.columns, num_casos=num_casos)
 
     return render_template('diferentes.html')
 
 
+@app.route('/auditoria_reconexiones', methods=['GET', 'POST'])
+def auditoria_reconexiones():
+    global resultado_excel  # Variable global para almacenar el archivo generado
 
+    if request.method == 'POST':
+        drive = request.files['drive']
+        saeplus = request.files['saeplus']
+        epayco = request.files['epayco']
+        olt = request.files['smartolt']
+        
+        try:
+            # Procesamiento de archivos
+            df_drive = pd.read_excel(drive)
+            df_saeplus = pd.read_excel(saeplus)
+            df_epayco = pd.read_excel(epayco)
+            df_abonado_cortes = procesar_archivo_excel_solo(saeplus)
+            df_olt_cortes = procesar_archivo_csv_solo(olt)
+        except Exception as e:
+            return render_template('error.html', error=f"Error en el procesamiento: {e}")
+
+        if not df_drive.empty and not df_saeplus.empty and not df_epayco.empty and not df_abonado_cortes.empty and not df_olt_cortes.empty:
+            # Normalización de columnas
+            df_drive = normalizar_columnas(df_drive, 'abonados')
+            df_saeplus = normalizar_columnas(df_saeplus, 'abonados')
+            df_epayco = normalizar_columnas(df_epayco, 'abonados')
+
+            # Merge de DataFrames
+            df_resultado1 = pd.merge(df_drive, df_saeplus, on="abonados", how="inner")
+            df_resultado2 = pd.merge(df_drive, df_epayco, on="abonados", how="inner")
+            df_resultado3 = pd.merge(
+                df_abonado_cortes, df_olt_cortes, how='right',
+                left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes')
+            ).dropna(subset=['EQUIPO MACO'])
+            df_resultado3.columns = df_resultado3.columns.str.lower()
+
+            # Selección de columnas relevantes
+            df_resultado1 = df_resultado1[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus_y', 'detalle suscripcion_x']]
+            df_resultado2 = df_resultado2[['abonados', 'documento_x', 'nombre', 'apellido', 'observaciones', 'estatus', 'detalle suscripcion']]
+            df_resultado3 = df_resultado3[['n° abonado', 'documento', 'nombre', 'apellido', 'estatus', 'status', 'olt', 'catv', 'administrative status', 'detalle suscripcion']]
+
+            df_resultado1 = df_resultado1[(df_resultado1['observaciones'].isna() | (df_resultado1['observaciones'] == '')) & 
+                                        (df_resultado1['estatus_y'] == 'ACTIVO')]
+
+            abonados_epayco = df_resultado2[(df_resultado2['observaciones'].isna() | (df_resultado2['observaciones'] == ''))]
+
+            df_resultado3 = df_resultado3[
+                (df_resultado3['estatus'].str.lower().isin(['activo'])) & 
+                ((df_resultado3['administrative status'].str.lower() != 'enabled') |
+                (df_resultado3['catv'].str.lower() != 'enabled')) |
+                (df_resultado3['status'].str.lower() != 'online')
+            ]
+
+            df_resultado3 = df_resultado3.rename(columns={df_resultado3.columns[0]: 'abonados'})
+            df_resultado4 = pd.merge(df_resultado3, df_resultado1, on="abonados", how="inner")
+
+            df_resultado5 = df_resultado4[
+                (df_resultado4['detalle suscripcion'].str.contains('@', na=False) & 
+                (df_resultado4['catv'].str.lower() == 'enabled')) |
+                (~df_resultado4['detalle suscripcion'].str.contains('@', na=False) &
+                (df_resultado4['catv'].str.lower() != 'enabled'))
+            ]
+
+            try:
+                # Generar el archivo Excel en memoria
+                output_filtrado = io.BytesIO()
+                with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer:
+                    df_resultado1.to_excel(writer, sheet_name='Reconexion sin observaciones', index=False)
+                    abonados_epayco.to_excel(writer, sheet_name='Pagos de epayco', index=False)
+                    df_resultado4.to_excel(writer, sheet_name='prueba 1', index=False)
+                    df_resultado5.to_excel(writer, sheet_name='Abonados sin activar', index=False)
+
+                output_filtrado.seek(0)
+                resultado_excel = output_filtrado  # Guardar el archivo en la variable global
+                print("Archivo generado correctamente")
+
+                # Redirigir a la página de resultados
+                num_casos = df_resultado5.shape[0]  # Número de casos encontrados
+                return render_template('resultado.html', data=df_resultado5.to_dict(orient='records'), columns=df_resultado5.columns, num_casos=num_casos)
+
+            except Exception as e:
+                print(f"Error al enviar el archivo: {e}")
+                return render_template('error.html', error=f"Error al enviar el archivo: {e}")
+
+    return render_template('auditoria_reconexiones.html')
 
 #Descargas /////////////////////////////////////////////////////////////
 @app.route('/descargar_resultado')
