@@ -64,21 +64,20 @@ df_resultado3 = df_resultado3 [
 
 # Filtra abonados que en workdrive no tienen observaciones y que su estatus es activo en saeplus con la olt
 df_resultado3 =df_resultado3.rename(columns={df_resultado3.columns[0]: 'abonados'})
-df_resultado4 = pd.merge(df_resultado3, df_resultado1, on="abonados" , how="inner")
+df_resultado3 = pd.merge(df_resultado3, df_resultado1, on="abonados" , how="inner")
 
 # Filtrar filas donde 'detalle de plan' contiene '@' y 'catv' está en 'enabled'
-df_resultado5 = df_resultado4[
-    (df_resultado4['detalle suscripcion'].str.contains('@', na=False)) & 
-    (df_resultado4['catv'].str.lower() == 'enabled')   |
-    ~(df_resultado4['detalle suscripcion'].str.contains('@', na=False)) &
-    (df_resultado4['catv'].str.lower() != 'enabled')
+df_resultado3 = df_resultado3[
+    ((df_resultado3['status'].str.lower() != 'online') |  # Cambiar a df_resultado3
+    ((df_resultado3['detalle suscripcion'].str.contains('@', na=False)) & 
+     ((df_resultado3['catv'].str.lower() == 'enabled')) | (df_resultado3 ['administrative status'].str.lower() != 'enabled')) |
+    (~df_resultado3['detalle suscripcion'].str.contains('@', na=False) & 
+    ( (df_resultado3['catv'].str.lower() != 'enabled')) | (df_resultado3 ['administrative status'].str.lower() != 'enabled')))
 ]
-
 
 # Guardar los resultados en diferentes pestañas de un archivo Excel
 output_file = "resultado_merge.xlsx"
 with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
     df_resultado1.to_excel(writer, sheet_name='Reconexion sin observaciones', index=False)
     abonados_epayco.to_excel(writer, sheet_name='Pagos de epayco', index=False)
-    df_resultado4.to_excel(writer, sheet_name='prueba 1', index=False)
-    df_resultado5.to_excel(writer, sheet_name='Abonados sin activar', index=False)
+    df_resultado3.to_excel(writer, sheet_name='Abonados sin activar', index=False)

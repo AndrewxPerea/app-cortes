@@ -4,3 +4,4 @@ env/
 paquetes.txt
 auxiliar_pruebas.py
 auxiliar.py
+auditoria_reconexiones.py

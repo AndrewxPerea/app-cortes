@@ -432,13 +432,13 @@ def auditoria_reconexiones():
             ]
 
             df_resultado3 = df_resultado3.rename(columns={df_resultado3.columns[0]: 'abonados'})
-            df_resultado4 = pd.merge(df_resultado3, df_resultado1, on="abonados", how="inner")
+            df_resultado3 = pd.merge(df_resultado3, df_resultado1, on="abonados", how="inner")
 
-            df_resultado5 = df_resultado4[
-                (df_resultado4['detalle suscripcion'].str.contains('@', na=False) & 
-                (df_resultado4['catv'].str.lower() == 'enabled')) |
-                (~df_resultado4['detalle suscripcion'].str.contains('@', na=False) &
-                (df_resultado4['catv'].str.lower() != 'enabled'))
+            desactivado = df_resultado3[
+                (df_resultado3['detalle suscripcion'].str.contains('@', na=False) & 
+                (df_resultado3['catv'].str.lower() == 'enabled')) |
+                (~df_resultado3['detalle suscripcion'].str.contains('@', na=False) &
+                (df_resultado3['catv'].str.lower() != 'enabled'))
             ]
 
             try:
@@ -447,16 +447,15 @@ def auditoria_reconexiones():
                 with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer:
                     df_resultado1.to_excel(writer, sheet_name='Reconexion sin observaciones', index=False)
                     abonados_epayco.to_excel(writer, sheet_name='Pagos de epayco', index=False)
-                    df_resultado4.to_excel(writer, sheet_name='prueba 1', index=False)
-                    df_resultado5.to_excel(writer, sheet_name='Abonados sin activar', index=False)
+                    desactivado.to_excel(writer, sheet_name='Abonados sin activar', index=False)
 
                 output_filtrado.seek(0)
                 resultado_excel = output_filtrado  # Guardar el archivo en la variable global
                 print("Archivo generado correctamente")
 
                 # Redirigir a la página de resultados
-                num_casos = df_resultado5.shape[0]  # Número de casos encontrados
-                return render_template('resultado.html', data=df_resultado5.to_dict(orient='records'), columns=df_resultado5.columns, num_casos=num_casos)
+                num_casos = desactivado.shape[0]  # Número de casos encontrados
+                return render_template('resultado.html', data=desactivado.to_dict(orient='records'), columns=desactivado.columns, num_casos=num_casos)
 
             except Exception as e:
                 print(f"Error al enviar el archivo: {e}")
