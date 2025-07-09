@@ -2,7 +2,7 @@ import pandas as pd
 from funciones import procesar_archivo_excel_solo, procesar_archivo_csv_solo
 
 # Archivos de entrada
-drive_file = 'drive.xlsx'
+drive_file = 'cortes.xlsx'
 saeplus_file = 'saeplus.xlsx'
 epayco_file = 'epayco.xlsx'
 olt_file = 'olt.csv'
@@ -41,10 +41,12 @@ df_resultado3 = pd.merge(
 ).dropna(subset=['EQUIPO MACO'])
 df_resultado3.columns = df_resultado3.columns.str.lower()
 
+
 # Selección de columnas relevantes
 df_resultado1 = df_resultado1[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus_y', 'detalle suscripcion_x']]
-df_resultado2 = df_resultado2[['abonados', 'documento_x', 'nombre', 'apellido', 'observaciones', 'estatus', 'detalle suscripcion']]
+df_resultado2 = df_resultado2[['abonados', 'documento_x', 'nombre', 'apellido', 'observaciones', 'estatus_x', 'detalle suscripcion']]
 df_resultado3 = df_resultado3[['n° abonado', 'documento', 'nombre', 'apellido', 'estatus', 'status', 'olt', 'catv', 'administrative status', 'detalle suscripcion']]
+
 
 #Filtra abonados que en workdrive no tienen observaciones y que su estatus es activo en saeplus
 df_resultado1 = df_resultado1[(df_resultado1['observaciones'].isna() | (df_resultado1['observaciones'] == '')) & 
@@ -52,6 +54,8 @@ df_resultado1 = df_resultado1[(df_resultado1['observaciones'].isna() | (df_resul
 
 # Filtra abonados que en workdrive no tienen observaciones y que hayan pagado en epayco
 abonados_epayco = df_resultado2[(df_resultado2['observaciones'].isna() | (df_resultado2['observaciones'] == '')) ]
+
+
 
 #filtra abonados que en saeplus esten activos  y que en olt no esten habilitados
 df_resultado3 = df_resultado3 [
@@ -75,9 +79,17 @@ df_resultado3 = df_resultado3[
     ( (df_resultado3['catv'].str.lower() != 'enabled')) | (df_resultado3 ['administrative status'].str.lower() != 'enabled')))
 ]
 
+# Solo los abonados de df_resultado1 que NO están en abonados_epayco
+pagos_saeplus = pd.merge(
+    df_resultado1, abonados_epayco, on="abonados", how="left", indicator=True
+)
+pagos_saeplus = pagos_saeplus[pagos_saeplus['_merge'] == 'left_only']
+
+pagos_saeplus = pagos_saeplus[['abonados', 'nombre_x', 'estatus_y', 'detalle suscripcion_x']]
 # Guardar los resultados en diferentes pestañas de un archivo Excel
 output_file = "resultado_merge.xlsx"
 with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
     df_resultado1.to_excel(writer, sheet_name='Reconexion sin observaciones', index=False)
     abonados_epayco.to_excel(writer, sheet_name='Pagos de epayco', index=False)
     df_resultado3.to_excel(writer, sheet_name='Abonados sin activar', index=False)
+    pagos_saeplus.to_excel(writer, sheet_name='pagos saeplus', index=False)

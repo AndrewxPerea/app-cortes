@@ -89,5 +89,5 @@ def procesar_archivo_excel_solo(archivo):
 
 def normalizar_columnas(df, rename_col):
                 df = df.rename(columns={df.columns[0]: rename_col})
-                df.columns = df.columns.str.lower()
+                
                 return df
