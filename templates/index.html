@@ -1,18 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}Página Principal{% endblock %}
+
+{% block content %}
 <style>
     body {
-        background: linear-gradient(45deg,
-            hsla(212, 85%, 52%, 0.5),
-            hwb(29 5% 15% / 0.5) 100%
-        ), url('https://www.tucable.net/wp-content/uploads/2018/10/logo.png');
+        background: 
+            linear-gradient(45deg, rgba(0,0,0,0.73), rgba(255,140,0,0.5) 100%),
+            url('https://www.tucable.net/wp-content/uploads/2024/03/LogoTuCable.png') center no-repeat fixed;
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
     }
 </style>
-
-    {% extends 'base.html' %}
-
-    {% block title %}Página Principal{% endblock %}
-
-    {% block content %}
-    {% endblock %}
+{% endblock %}

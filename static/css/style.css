@@ -1,115 +1,139 @@
 /* Estilos generales */
-  /* Estilo personalizado para centrar el contenido verticalmente */
-  .center-screen {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 50vh; /* Altura del viewport */
-  }
-  .center-screen-2 {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 20vh; /* Altura del viewport */
-  }
-  .navbar-title {
-    font-size: 50px; /* Puedes ajustar este valor según tus necesidades */
-  }
-  body {
-    background-color: #f2f2f2; /* Color de fondo gris claro */
-  }
-  .navbar{
-    background: linear-gradient(45deg,
-    hsla(212, 85%, 52%, 0.5),
-    hwb(29 5% 4% / 0.725) 100%
-)
+/* Estilo personalizado para centrar el contenido verticalmente */
+.center-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  /* Altura del viewport */
 }
+
+.center-screen-2 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 20vh;
+  /* Altura del viewport */
+}
+
 .navbar-title {
-    font-size: 50px;
-}
-.navbar {
-    margin-bottom: 20px;
-}
-.navbar a:hover {
-    color: rgb(14, 1, 184);
+  font-size: 50px;
+  /* Puedes ajustar este valor según tus necesidades */
 }
 
 body {
-    background-color: #f2f2f2;
+  background-color: #f2f2f2;
+  /* Color de fondo gris claro */
+}
+
+.navbar {
+  background: linear-gradient(45deg,
+      hsla(0, 0%, 0%, 0.785),
+      hwb(29 0% 39% / 0.725) 100%)
+}
+
+.navbar-title {
+  font-size: 50px;
+}
+
+.navbar {
+  margin-bottom: 20px;
+}
+
+.navbar a:hover {
+  color: rgb(255, 255, 255);
 }
 
 /* Estilos del loader */
 #loader {
-    display: none; /* Oculto por defecto */
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 9999;
+  display: none;
+  /* Oculto por defecto */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
 }
 
 .loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(255, 255, 255, 0.7);
-    z-index: 9998;
-    display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 9998;
+  display: none;
 }
 
 
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes glow {
-    0%, 100% {
-        box-shadow: 0 0 10px #3498db, 0 0 20px #3498db, 0 0 30px #3498db;
-    }
-    50% {
-        box-shadow: 0 0 30px #3498db, 0 0 60px #3498db, 0 0 90px #3498db;
-    }
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px #3498db, 0 0 20px #3498db, 0 0 30px #3498db;
+  }
+
+  50% {
+    box-shadow: 0 0 30px #3498db, 0 0 60px #3498db, 0 0 90px #3498db;
+  }
 }
 
 
 /* HTML: <div class="loader"></div> */
 .loader {
-    width: 90px;
-    height: 24px;
-    padding: 2px 0;
-    box-sizing: border-box;
-    display: flex;
-    animation: l5-0 3s infinite steps(6);
-    background:
-      linear-gradient(#000 0 0) 0 0/0% 100% no-repeat,
-      radial-gradient(circle 3px,#eeee89 90%,#0000) 0 0/20% 100%
-      #000;
-    overflow: hidden;
-  }
-  .loader::before {
-    content: "";
-    width: 20px;
-    transform: translate(-100%);
-    border-radius: 50%;
-    background: #ffff2d;
-    animation: 
-      l5-1 .25s .153s infinite steps(5) alternate,
-      l5-2  3s        infinite linear;
-  }
-  @keyframes l5-1{ 
-      0% {clip-path: polygon(50% 50%,100%   0,100% 0,0 0,0 100%,100% 100%,100% 100%)}
-    100% {clip-path: polygon(50% 50%,100% 65%,100% 0,0 0,0 100%,100% 100%,100%  35%)}
-  }
-  @keyframes l5-2{ 
-    100% {transform: translate(90px)}
-  }
-  @keyframes l5-0{ 
-    100% {background-size:120% 100%,20% 100%}
+  width: 90px;
+  height: 24px;
+  padding: 2px 0;
+  box-sizing: border-box;
+  display: flex;
+  animation: l5-0 3s infinite steps(6);
+  background:
+    linear-gradient(#000 0 0) 0 0/0% 100% no-repeat,
+    radial-gradient(circle 3px, #eeee89 90%, #0000) 0 0/20% 100% #000;
+  overflow: hidden;
+}
+
+.loader::before {
+  content: "";
+  width: 20px;
+  transform: translate(-100%);
+  border-radius: 50%;
+  background: #ffff2d;
+  animation:
+    l5-1 .25s .153s infinite steps(5) alternate,
+    l5-2 3s infinite linear;
+}
+
+@keyframes l5-1 {
+  0% {
+    clip-path: polygon(50% 50%, 100% 0, 100% 0, 0 0, 0 100%, 100% 100%, 100% 100%)
   }
 
+  100% {
+    clip-path: polygon(50% 50%, 100% 65%, 100% 0, 0 0, 0 100%, 100% 100%, 100% 35%)
+  }
+}
 
-  
+@keyframes l5-2 {
+  100% {
+    transform: translate(90px)
+  }
+}
+
+@keyframes l5-0 {
+  100% {
+    background-size: 120% 100%, 20% 100%
+  }
+}

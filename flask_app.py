@@ -378,6 +378,8 @@ def diferentes():
                         axis=1, how='all')
 
                     # Crear el archivo Excel en memoria
+                    with pd.ExcelWriter('Resultado.xlsx', engine='xlsxwriter') as writer:
+                       resultado_todos_diferentes.to_excel(writer, sheet_name='Solo en abonados', index=False)
                     output_filtrado = io.BytesIO()
                     with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer:
                         resultado_todos_diferentes.to_excel(
@@ -394,11 +396,48 @@ def diferentes():
                     # Redirigir a la página de resultados
                     # Número de casos encontrados
                     num_casos = resultado_diferente.shape[0]
+                    
                     return render_template('resultado.html', data=resultado_diferente.to_dict(orient='records'), columns=resultado_diferente.columns, num_casos=num_casos)
 
     return render_template('diferentes.html')
 
+@app.route('/sin_navegar', methods=['GET', 'POST'])
+def sin_navegar():
+    global resultado_excel  # Variable global para almacenar el archivo generado
 
+    if request.method == 'POST':
+        abonados_file = request.files['abonados']
+        olt_file = request.files['olt']
+        try:       
+            df_abonados = procesar_archivo_excel_solo(abonados_file)
+            df_olt = procesar_archivo_csv_solo(olt_file)
+        except Exception as e:
+            return render_template('error.html', error=f"Error en el procesamiento: {e}")
+        
+        if not df_abonados.empty and not df_olt.empty:
+            resultado = pd.merge(df_abonados,  df_olt, how='right',
+                                 left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
+            df_resultado = resultado.dropna(subset=['EQUIPO MACO'])
+            df_resultado.columns = resultado.columns.str.lower()
+            df_resultado1 = df_resultado[(df_resultado['estatus'] == 'ACTIVO') &
+                                        (df_resultado['status'] == 'Offline') ]
+            df_resultado2 = df_resultado[(df_resultado['estatus'] == 'ACTIVO') &
+                                        (df_resultado['administrative status'] == 'Disabled') ]
+            df_resultado3= df_resultado[(~df_resultado['detalle suscripcion'].str.contains('@', na=False)) & (df_resultado['estatus'] == 'ACTIVO') &
+                                (df_resultado['catv'] == 'Disabled')]
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_resultado1.to_excel(writer, sheet_name='Activos sin navegar', index=False)
+                df_resultado2.to_excel(writer, sheet_name='Activos disable internet', index=False)
+                df_resultado3.to_excel(writer, sheet_name='Activos disable ctv', index=False)
+            output.seek(0)
+            resultado_excel = output  # Guardar el archivo en la variable global    
+            # Número de casos encontrados
+            num_casos = df_resultado1.shape[0] + df_resultado2.shape[0] + df_resultado3.shape[0]    
+            return render_template('resultado.html', data=df_resultado2.to_dict(orient='records'), columns=df_resultado.columns, num_casos=num_casos)
+    # Si no se envió un archivo o no se procesó correctamente, renderizar la plantilla sin resultados
+
+    return render_template('sin_navegar.html')
 # Auditoria de reconexiones 
 @app.route('/auditoria_reconexiones', methods=['GET', 'POST'])
 def auditoria_reconexiones():
@@ -441,7 +480,7 @@ def auditoria_reconexiones():
            
 
             # Selección de columnas relevantes
-            df_resultado1 = df_resultado1[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus_y', 'detalle suscripcion_x']]
+            df_resultado1 = df_resultado1[['abonados', 'documento_x', 'nombre_x', 'apellido_x', 'observaciones', 'estatus_y', 'detalle suscripcion_x', 'saldo_y']]
             df_resultado2 = df_resultado2[['abonados', 'documento_x', 'nombre', 'apellido', 'observaciones', 'estatus_x', 'detalle suscripcion']]
             df_resultado3 = df_resultado3[['n° abonado', 'documento', 'nombre', 'apellido', 'estatus', 'status', 'olt', 'catv', 'administrative status', 'detalle suscripcion']]
 
@@ -476,7 +515,7 @@ def auditoria_reconexiones():
                 reconexiones, abonados_epayco, on="abonados", how="left", indicator=True
             )
             pagos_saeplus = pagos_saeplus[pagos_saeplus['_merge'] == 'left_only']
-            pagos_saeplus = pagos_saeplus[['abonados', 'nombre_x', 'estatus_y', 'detalle suscripcion_x']]
+            pagos_saeplus = pagos_saeplus[['abonados', 'nombre_x', 'estatus_y', 'detalle suscripcion_x', 'saldo_y']]
             try:
                 # Generar el archivo Excel en memoria
                 output_filtrado = io.BytesIO()
