@@ -91,3 +91,12 @@ def normalizar_columnas(df, rename_col):
                 df = df.rename(columns={df.columns[0]: rename_col})
                 df.columns = df.columns.str.lower()      
                 return df
+
+
+def clasificar_estado_potencia(potencia):
+    if potencia <= -33:
+        return "Arpoón Critico"
+    elif potencia <= -30:
+        return "Arpón Alarmado"
+    else:
+        return "Normal"
