@@ -19,22 +19,16 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 resultado_excel = None
 
 # Home page
-
-
 @app.route('/')
 def index():
     return render_template('index.html')
 
 # Maysusculas
-
-
 @app.route('/mayuscula')
 def mayuscula():
     return render_template('mayus.html')
 
 # Mensajes
-
-
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
@@ -79,9 +73,8 @@ def upload_file():
 def tutoriales():
     return render_template('tutoriales.html')
 
+
 # reconexiones
-
-
 @app.route('/reconexiones',)
 def reconexiones():
     return render_template('reconexiones.html')
@@ -127,9 +120,8 @@ def procesar_archivos():
     time.sleep(3)
     return render_template('resultado.html', data=df_resultado.to_dict(orient='records'), columns=df_resultado.columns, num_casos=num_casos)
 
+
 # Cortes
-
-
 @app.route('/cortes', methods=['GET', 'POST'])
 def cortes():
     global resultado_excel
@@ -184,9 +176,8 @@ def cortes():
 
     return render_template('cortes.html')
 
-# solo @
 
-
+# solo @internet
 @app.route('/solointernet', methods=['GET', 'POST'])
 def solointernet():
     global resultado_excel
@@ -232,9 +223,8 @@ def solointernet():
             return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns, num_casos=num_casos)
     return render_template('solointernet.html')
 
+
 # No activos
-
-
 @app.route('/noactivos', methods=['GET', 'POST'])
 def noactivos():
     global resultado_excel
@@ -285,9 +275,8 @@ def noactivos():
 
     return render_template('noactivos.html')
 
+
 # comparador de planes
-
-
 @app.route('/verificar_velocidad', methods=['GET', 'POST'])
 def verificar_velocidad():
     global resultado_excel
@@ -346,9 +335,8 @@ def verificar_velocidad():
 
     return render_template('verificar_velocidad.html')
 
+
 # Comparador de diferentes equipos
-
-
 @app.route('/diferentes', methods=['GET', 'POST'])
 def diferentes():
     global resultado_excel  # Variable global para almacenar el archivo generado
@@ -410,6 +398,7 @@ def diferentes():
     return render_template('diferentes.html')
 
 
+# Sin navegar
 @app.route('/sin_navegar', methods=['GET', 'POST'])
 def sin_navegar():
     global resultado_excel  # Variable global para almacenar el archivo generado
@@ -460,9 +449,8 @@ def sin_navegar():
 
     return render_template('sin_navegar.html')
 
+
 # Auditoria de reconexiones
-
-
 @app.route('/auditoria_reconexiones', methods=['GET', 'POST'])
 def auditoria_reconexiones():
     global resultado_excel  # Variable global para almacenar el archivo generado
@@ -572,6 +560,7 @@ def auditoria_reconexiones():
     return render_template('auditoria_reconexiones.html')
 
 
+#Auditoria de atenuacion
 @app.route('/auditoria_atenuacion', methods=['GET', 'POST'])
 def auditoria_atenuacion():
     imagen = None
@@ -642,7 +631,6 @@ def descargar_resultado():
         return send_file(resultado_excel, as_attachment=True, download_name='resultado.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     else:
         return redirect(url_for('index'))
-
 
 @app.route('/download/excel_todas')
 def download_excel_todas():
