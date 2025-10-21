@@ -18,15 +18,18 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Variable global para almacenar el archivo Excel resultante
 resultado_excel = None
 
+
 # Home page
 @app.route('/')
 def index():
     return render_template('index.html')
 
+
 # Maysusculas
 @app.route('/mayuscula')
 def mayuscula():
     return render_template('mayus.html')
+
 
 # Mensajes
 @app.route('/upload', methods=['GET', 'POST'])
@@ -424,27 +427,46 @@ def sin_navegar():
                 'service port upload speed', 'service port download speed', 'tipo tecnología.', 'catv', 'administrative status'
             ]
             df_resultado = df_resultado[columnas_deseadas]
+
+            # Activos sin navegar
             df_resultado1 = df_resultado[(df_resultado['estatus'] == 'ACTIVO') &
-                                         (df_resultado['status'] == 'Offline')]
-            df_resultado2 = df_resultado[(df_resultado['estatus'] == 'ACTIVO') &
-                                         (df_resultado['administrative status'] == 'Disabled')]
-            df_resultado3 = df_resultado[(~df_resultado['detalle suscripcion'].str.contains('@', na=False)) & (df_resultado['estatus'] == 'ACTIVO') &
+                                         ((df_resultado['administrative status'] == 'Disabled') |
+                                         (df_resultado['status'] == 'Offline'))]
+            # Abonados desactivados con internet
+            df_resultado2 = df_resultado[
+                # Filtra los que no sean "estatus activo" o "estatus por instalar"
+                ((df_resultado['estatus'].str.lower().isin(['activo', 'por instalar']) == False) &
+                 (df_resultado['status'].str.lower() == 'online'))
+
+            ]
+            # Activos sin catv
+            df_resultado3 = df_resultado[(~df_resultado['detalle suscripcion'].str.contains('@', na=False)) &
+                                         (df_resultado['estatus'] == 'ACTIVO') &
                                          (df_resultado['catv'] == 'Disabled')]
+            # Solo con @ y catv activo
+
+            df_resultado4 = df_resultado[
+                (df_resultado['detalle suscripcion'].str.contains('@', na=False)) &
+                (df_resultado['catv'] == 'Enabled')
+            ]
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df_resultado1.to_excel(
                     writer, sheet_name='Activos sin navegar', index=False)
                 df_resultado2.to_excel(
-                    writer, sheet_name='Activos disable internet', index=False)
+                    writer, sheet_name='Desactivos con internet', index=False)
                 df_resultado3.to_excel(
-                    writer, sheet_name='Activos disable ctv', index=False)
+                    writer, sheet_name='Activos sin Catv', index=False)
+                df_resultado4.to_excel(
+                    writer, sheet_name='Solo con @ y catv activo', index=False)
             output.seek(0)
             resultado_excel = output  # Guardar el archivo en la variable global
             # Número de casos encontrados
             num_casos = df_resultado1.shape[0] + \
-                df_resultado2.shape[0] + df_resultado3.shape[0]
-            return render_template('resultado.html', data=df_resultado2.to_dict(orient='records'), columns=df_resultado.columns, num_casos=num_casos)
+                df_resultado2.shape[0] + \
+                df_resultado3.shape[0] + df_resultado4.shape[0]
+            return render_template('resultado.html', data=df_resultado1.to_dict(orient='records'), columns=df_resultado.columns, num_casos=num_casos)
     # Si no se envió un archivo o no se procesó correctamente, renderizar la plantilla sin resultados
 
     return render_template('sin_navegar.html')
@@ -560,7 +582,7 @@ def auditoria_reconexiones():
     return render_template('auditoria_reconexiones.html')
 
 
-#Auditoria de atenuacion
+# Auditoria de atenuacion
 @app.route('/auditoria_atenuacion', methods=['GET', 'POST'])
 def auditoria_atenuacion():
     imagen = None
@@ -631,6 +653,7 @@ def descargar_resultado():
         return send_file(resultado_excel, as_attachment=True, download_name='resultado.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     else:
         return redirect(url_for('index'))
+
 
 @app.route('/download/excel_todas')
 def download_excel_todas():
