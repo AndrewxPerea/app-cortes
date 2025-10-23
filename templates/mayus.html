@@ -1,26 +1,56 @@
-
 <body>
-    {% extends 'base.html' %}
-    {% block title %}Mayúsculas{% endblock %} {% block content %}
-<div class="container">
-    <h1 style="color: orangered;">Texto a convertir en  Mayúsculas</h1>
-    <input type="text" id="textoInput" placeholder="Ingresa tu texto aquí" oninput="convertirMayusculas()">
-    <br>
+  {% extends 'base.html' %} {% block title %}Mayúsculas{% endblock %} {% block
+  content %}
+  <div class="container">
+    <input
+      type="text"
+      id="textoInput"
+      placeholder="Ingresa tu texto aquí"
+      oninput="convertirMayusculas()"
+    />
+    <br />
     <button onclick="mostrarTexto()">Mostrar Texto</button>
     <p id="textoResultado"></p>
-</div>
+  </div>
 
-<script>
+  <div class="container center-screen">
+    <div class="row">
+      <div class="col">
+        <h1>Texto a convertir en Mayúsculas</h1>
+        <div class="input-group mb-3">
+          <input
+            type="text"
+            class="form-control"
+            id="textoInput"
+            name="textoInput"
+            placeholder="Ingresa tu texto aquí"
+            oninput="convertirMayusculas()"
+          />
+          <input
+            type="submit"
+            class="btn btn-cafe-outline"
+            value="Procesar Archivos"
+            onclick="mostrarTexto()"
+          />
+          <p id="textoResultado"></p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
     function convertirMayusculas() {
-        var input = document.getElementById('textoInput');
-        input.value = input.value.toUpperCase();
+      var input = document.getElementById("textoInput");
+      input.value = input.value.toUpperCase();
     }
 
     function mostrarTexto() {
-        var texto = document.getElementById('textoInput').value;
-        document.getElementById('textoResultado').innerText = 'Texto en mayúsculas: ' + texto;
+      var texto = document.getElementById("textoInput").value;
+      document.getElementById("textoResultado").innerText =
+        "Texto en mayúsculas: " + texto;
     }
-</script>
+  </script>
 
-
-{% endblock %}
+  {% endblock %}
+</body>

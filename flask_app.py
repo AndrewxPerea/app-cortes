@@ -19,8 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 resultado_excel = None
 
 
-# Home page
-@app.route('/')
+@app.route('/',)
 def index():
     return render_template('index.html')
 
@@ -29,52 +28,6 @@ def index():
 @app.route('/mayuscula')
 def mayuscula():
     return render_template('mayus.html')
-
-
-# Mensajes
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            return 'No file part'
-
-        file = request.files['file']
-
-        if file.filename == '':
-            return 'No selected file'
-
-        if file:
-            # Crear el directorio uploads si no existe
-            upload_dir = 'uploads'
-            if not os.path.exists(upload_dir):
-                os.makedirs(upload_dir)
-
-            # Guardar archivo subido temporalmente
-            file_path = os.path.join(upload_dir, file.filename)
-            file.save(file_path)
-
-            try:
-                # Procesar el archivo Excel
-                processed_file = procesar_excel(file_path)
-
-                # Eliminar el archivo después de procesarlo
-                os.remove(file_path)
-
-                # Devolver el archivo procesado
-                return send_file(processed_file, as_attachment=True)
-            except Exception as e:
-                # Asegurarse de eliminar el archivo si ocurre un error
-                os.remove(file_path)
-                return f"Error processing file: {str(e)}"
-
-        time.sleep(3)
-    return render_template('upload.html')
-
-
-# Tutoriales
-@app.route('/tutoriales')
-def tutoriales():
-    return render_template('tutoriales.html')
 
 
 # reconexiones
@@ -180,105 +133,6 @@ def cortes():
     return render_template('cortes.html')
 
 
-# solo @internet
-@app.route('/solointernet', methods=['GET', 'POST'])
-def solointernet():
-    global resultado_excel
-
-    if request.method == 'POST':
-        abonados_file = request.files['abonados_solointernet']
-        cortes_file = request.files['olt']
-        try:
-            df_abonados = procesar_archivo_excel_solo(abonados_file)
-            df_cortes = procesar_archivo_csv_solo(cortes_file)
-        except Exception as e:
-            return render_template('error.html', error=str(e))
-
-        if not df_abonados.empty and not df_cortes.empty:
-            resultado = pd.merge(df_abonados, df_cortes, how='right',
-                                 left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
-            resultado = resultado.dropna(subset=['EQUIPO MACO'])
-            resultado.columns = resultado.columns.str.lower()
-
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-
-                abonados_filtrados = resultado[
-                    (resultado['detalle suscripcion'].str.contains('@', na=False)) &
-                    (resultado['catv'] == 'Enabled')
-                ]
-                columnas_deseadas = [
-                    'n° abonado', 'documento', 'nombre', 'apellido',
-                    'estatus', 'equipo maco', 'detalle suscripcion', 'sn', 'olt',
-                    'catv', 'administrative status'
-                ]
-                abonados_filtrados = abonados_filtrados[columnas_deseadas]
-                if not abonados_filtrados.empty:
-                    abonados_filtrados.to_excel(
-                        writer, index=False, sheet_name='Abonados solo @ Con catv')
-
-            output.seek(0)
-            resultado_excel = output
-           # Número de casos encontrados
-            num_casos = abonados_filtrados.shape[0]
-
-            time.sleep(3)
-            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns, num_casos=num_casos)
-    return render_template('solointernet.html')
-
-
-# No activos
-@app.route('/noactivos', methods=['GET', 'POST'])
-def noactivos():
-    global resultado_excel
-    if request.method == 'POST':
-        abonados_file = request.files['abonados_solointernet']
-        cortes_file = request.files['olt']
-
-        try:
-            df_abonados = procesar_archivo_excel_solo(abonados_file)
-            df_cortes = procesar_archivo_csv_solo(cortes_file)
-        except Exception as e:
-            return render_template('error.html', error=str(e))
-
-        if not df_abonados.empty and not df_cortes.empty:
-            resultado = pd.merge(df_abonados, df_cortes, how='right',
-                                 left_on='EQUIPO MACO', right_on='NSN', suffixes=('_abonados', '_cortes'))
-            resultado = resultado.dropna(subset=['EQUIPO MACO'])
-            resultado.columns = resultado.columns.str.lower()
-
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                abonados_filtrados = resultado[
-                    # Filtra los que no sean "estatus activo" o "estatus por instalar"
-                    (resultado['estatus'].str.lower().isin(['activo', 'por instalar']) == False) &
-                    ((resultado['administrative status'].str.lower() == 'enabled') |
-                     (resultado['catv'].str.lower() == 'enabled') |
-                        (resultado['status'].str.lower() == 'online'))    # Filtra solo los que tienen "status" como "online"
-                ]
-
-                columnas_deseadas = [
-                    'n° abonado', 'documento', 'nombre', 'apellido',
-                    'estatus', 'status', 'equipo maco', 'sn', 'olt',
-                    'catv', 'administrative status'
-                ]
-                abonados_filtrados = abonados_filtrados[columnas_deseadas]
-
-                if not abonados_filtrados.empty:
-                    abonados_filtrados.to_excel(
-                        writer, index=False, sheet_name='Abonados Filtrados')
-              # Número de casos encontrados
-            num_casos = abonados_filtrados.shape[0]
-
-            output.seek(0)
-            resultado_excel = output
-
-            time.sleep(3)
-            return render_template('resultado.html', data=abonados_filtrados.to_dict(orient='records'), columns=abonados_filtrados.columns, num_casos=num_casos)
-
-    return render_template('noactivos.html')
-
-
 # comparador de planes
 @app.route('/verificar_velocidad', methods=['GET', 'POST'])
 def verificar_velocidad():
@@ -364,8 +218,6 @@ def diferentes():
                     # Filtrar registros donde 'EQUIPO MACO' y 'NSN' no coinciden
                     resultado_diferente = resultado[resultado['_merge'] != 'both']
 
-                    resultado_todos_diferentes = resultado_diferente.dropna(
-                        axis=1, how='all')
                     resultado_solo_equipo_mac = resultado_diferente.dropna(subset=[
                                                                            'EQUIPO MACO'])
                     resultado_solo_equipo_mac = resultado_solo_equipo_mac.dropna(
@@ -375,28 +227,30 @@ def diferentes():
                     resultado_solo_nsn = resultado_solo_nsn.dropna(
                         axis=1, how='all')
 
-                    # Crear el archivo Excel en memoria
-                    with pd.ExcelWriter('Resultado.xlsx', engine='xlsxwriter') as writer:
-                        resultado_todos_diferentes.to_excel(
-                            writer, sheet_name='Solo en abonados', index=False)
+                try:
                     output_filtrado = io.BytesIO()
                     with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer:
-                        resultado_todos_diferentes.to_excel(
-                            writer, sheet_name='Todos los Registros Diferentes', index=False)
+
+                        # Solo los que están en SAEPLUS pero no en OLT (left_only)
                         resultado_solo_equipo_mac.to_excel(
-                            writer, sheet_name='Solo en saeplus', index=False)
+                            writer, sheet_name='Solo en SAEPLUS', index=False)
+                        # Solo los que están en OLT pero no en SAEPLUS (right_only)
                         resultado_solo_nsn.to_excel(
-                            writer, sheet_name='Solo en olt', index=False)
+                            writer, sheet_name='Solo en OLT', index=False)
 
-                    output_filtrado.seek(0)
-                    resultado_excel = output_filtrado  # Guardar el archivo en la variable global
-                    print("Archivo generado correctamente")
+                except Exception as e:
+                    print(f"Error al generar/enviar el archivo: {e}")
 
-                    # Redirigir a la página de resultados
-                    # Número de casos encontrados
-                    num_casos = resultado_diferente.shape[0]
+                output_filtrado.seek(0)
+                resultado_excel = output_filtrado
 
-                    return render_template('resultado.html', data=resultado_diferente.to_dict(orient='records'), columns=resultado_diferente.columns, num_casos=num_casos)
+                num_casos = resultado_diferente.shape[0]
+                return render_template(
+                    'resultado.html',
+                                    num_casos=num_casos
+                )
+
+            return render_template('error.html', error=f"Error al generar/enviar el archivo: {e}")
 
     return render_template('diferentes.html')
 
@@ -649,7 +503,9 @@ def auditoria_atenuacion():
 @app.route('/descargar_resultado')
 def descargar_resultado():
     global resultado_excel
-    if resultado_excel:
+    if not resultado_excel:
+        return render_template('error.html', error="No hay archivo para descargar.")
+    elif resultado_excel:
         return send_file(resultado_excel, as_attachment=True, download_name='resultado.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     else:
         return redirect(url_for('index'))
