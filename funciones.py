@@ -54,9 +54,6 @@ def procesar_excel(archivo_excel):
     df.to_excel(output_file, index=False)
     return output_file
 
-
-
-
 def procesar_archivo_csv_solo(archivo):
     try:
         # Leer el archivo CSV sin fragmentarlo
@@ -91,7 +88,6 @@ def normalizar_columnas(df, rename_col):
                 df = df.rename(columns={df.columns[0]: rename_col})
                 df.columns = df.columns.str.lower()      
                 return df
-
 
 def clasificar_estado_potencia(potencia):
     if potencia <= -33:

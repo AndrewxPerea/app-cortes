@@ -5,10 +5,7 @@ import io
 from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo, normalizar_columnas, clasificar_estado_potencia
 import re
 import time
-import tempfile
-import base64
-import seaborn as sns
-import matplotlib.pyplot as plt
+
 app = Flask(__name__)
 dfs = {}
 UPLOAD_FOLDER = 'uploads'
@@ -22,12 +19,6 @@ resultado_excel = None
 @app.route('/',)
 def index():
     return render_template('index.html')
-
-
-# Maysusculas
-@app.route('/mayuscula')
-def mayuscula():
-    return render_template('mayus.html')
 
 
 # reconexiones
@@ -91,8 +82,13 @@ def cortes():
             df_saeplus = procesar_archivo_excel_solo(sae_file)
         except Exception as e:
             return render_template('error.html', error=str(e))
+        
 
         if not df_cortes.empty and not df_saeplus.empty and not df_olt.empty:
+        
+            
+
+            
             resultado = pd.merge(
                 df_saeplus, df_cortes, how='right', left_on='N° Abonado', right_on='N° Abonado')
             resultado = resultado.dropna(subset=['N° Abonado'])
@@ -100,20 +96,24 @@ def cortes():
                                  right_on='NSN', suffixes=('_abonados', '_cortes'))
             resultado = resultado.dropna(subset=['EQUIPO MACO_y'])
             resultado.columns = resultado.columns.str.lower()
+        
 
             columnas_deseadas = [
-                'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
-                'estatus', 'observaciones', 'sn', 'olt',
-                'catv', 'administrative status', 'status', 'ingeniero'
+                  'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
+                    'estatus', 'observaciones', 'sn', 'olt',
+                    'catv', 'administrative status', 'status', 'ingeniero',
             ]
+        
 
             resultado_filtrado = resultado[columnas_deseadas]
+
+        
             resultado_filtrado = resultado_filtrado[
-                (resultado_filtrado['observaciones'].isna()) &
-                (resultado_filtrado['estatus'] != 'ACTIVO') &
-                ((resultado_filtrado['status'] == 'Online') |
-                 (resultado_filtrado['catv'] != 'Disabled') |
-                 (resultado_filtrado['administrative status'] == 'Enabled'))
+            (resultado_filtrado['observaciones'].isna()) &
+            (resultado_filtrado['estatus'] != 'ACTIVO') &
+            ((resultado_filtrado['status'] == 'Online') |
+            (resultado_filtrado['catv'] != 'Disabled') |
+            (resultado_filtrado['administrative status'] == 'Enabled'))
             ]
             resultado_filtrado = resultado_filtrado.dropna(
                 subset=['estatus'])
@@ -121,7 +121,9 @@ def cortes():
             output_filtrado = io.BytesIO()
             with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer_filtrado:
                 resultado_filtrado.to_excel(
-                    writer_filtrado, index=False, sheet_name='Resultado Filtrado')
+                 writer_filtrado, index=False, sheet_name='Resultado Filtrado')
+                # Siempre escribir la hoja de "Resultado Aliados" (puede estar vacía)
+               
             output_filtrado.seek(0)
             num_casos = resultado_filtrado.shape[0]
             resultado_excel = output_filtrado
@@ -285,7 +287,7 @@ def sin_navegar():
             # Activos sin navegar
             df_resultado1 = df_resultado[(df_resultado['estatus'] == 'ACTIVO') &
                                          ((df_resultado['administrative status'] == 'Disabled') |
-                                         (df_resultado['status'] == 'Offline'))]
+                                         ~(df_resultado['status'] == 'Online'))]
             # Abonados desactivados con internet
             df_resultado2 = df_resultado[
                 # Filtra los que no sean "estatus activo" o "estatus por instalar"
@@ -436,68 +438,6 @@ def auditoria_reconexiones():
     return render_template('auditoria_reconexiones.html')
 
 
-# Auditoria de atenuacion
-@app.route('/auditoria_atenuacion', methods=['GET', 'POST'])
-def auditoria_atenuacion():
-    imagen = None
-    df_tabla = None
-    mensaje = None
-    olts = []
-    olt_seleccionada = None
-
-    if request.method == 'POST':
-        file = request.files['file']
-        df = pd.read_csv(file)
-        df['Signal 1310'] = pd.to_numeric(df['Signal 1310'], errors='coerce')
-
-        olts = sorted(df['OLT'].dropna().unique())
-        olt_seleccionada = request.form.get('olt', olts[0] if olts else None)
-
-        if not olt_seleccionada:
-            mensaje = "No hay OLTs válidas en el archivo."
-            return render_template('auditoria_atenuacion.html', mensaje=mensaje)
-
-        df_olt = df[df['OLT'] == olt_seleccionada]
-
-        agrupado = df_olt.groupby(['Board', 'Port']).agg(
-            promedio_signal_1310=('Signal 1310', 'mean'),
-            num_ONUs_menor_m30=('Signal 1310', lambda x: (x <= -30).sum()),
-            num_ONUs=('Signal 1310', 'count')
-        ).reset_index()
-        agrupado = agrupado.dropna(subset=['promedio_signal_1310'])
-        agrupado['estado'] = agrupado['promedio_signal_1310'].apply(
-            clasificar_estado_potencia)
-
-        dfs[olt_seleccionada] = agrupado
-
-        pivot = agrupado.pivot(index='Board', columns='Port',
-                               values='promedio_signal_1310')
-
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(pivot, cmap="coolwarm_r", annot=True,
-                    fmt=".1f", center=-30, vmin=-35, vmax=-20)
-        plt.title(f"Mapa de Calor Potencia OLT {olt_seleccionada}")
-        plt.xlabel("Port")
-        plt.ylabel("Board")
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        plt.close()
-
-        data = base64.b64encode(buf.getvalue()).decode("utf-8")
-        imagen = f'data:image/png;base64,{data}'
-
-        df_tabla = agrupado.to_html(
-            classes='table table-bordered', index=False)
-
-    else:
-        mensaje = "Por favor, suba un archivo CSV."
-
-    return render_template('auditoria_atenuacion.html', imagen=imagen, df_tabla=df_tabla, mensaje=mensaje,
-                           olts=olts, olt_seleccionada=olt_seleccionada)
-
 
 # Descargas
 @app.route('/descargar_resultado')
@@ -511,30 +451,6 @@ def descargar_resultado():
         return redirect(url_for('index'))
 
 
-@app.route('/download/excel_todas')
-def download_excel_todas():
-    if not dfs:
-        return "No hay datos para exportar", 404
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
-        with pd.ExcelWriter(tmp.name, engine='xlsxwriter') as writer:
-            found = False
-            for olt, df in dfs.items():
-
-                df_filtrado = df[df['estado'].isin(
-                    ['Arpón Alarmado', 'Arpoón Critico'])]
-
-                if not df_filtrado.empty:
-                    found = True
-                    df_filtrado.to_excel(
-                        writer, sheet_name=olt[:31], index=False)
-        tmp.flush()
-        if not found:
-            return "No hay datos críticos/alarma", 404
-        return send_file(tmp.name,
-                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                         as_attachment=True,
-                         download_name='arpomes_olt.xlsx')
 
 
 if __name__ == '__main__':
