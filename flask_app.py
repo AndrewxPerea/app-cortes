@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, send_file, redirect, url_for, Response
 import pandas as pd
 import io
-from funciones import procesar_excel, procesar_archivo_csv_solo, procesar_archivo_excel_solo, normalizar_columnas, clasificar_estado_potencia
+from funciones import  procesar_archivo_csv_solo, procesar_archivo_excel_solo, normalizar_columnas
 import re
 import time
 
@@ -78,36 +78,49 @@ def cortes():
         sae_file = request.files['asaeplus']
         try:
             df_cortes = procesar_archivo_excel_solo(abonados_file)
+            print(df_cortes.columns)
+            if 'ingeniero' in df_cortes.columns:
+             print("La columna existe")
+            else:
+                print("La columna no existe")
+
             df_olt = procesar_archivo_csv_solo(cortes_file)
             df_saeplus = procesar_archivo_excel_solo(sae_file)
+
         except Exception as e:
             return render_template('error.html', error=str(e))
-        
+
 
         if not df_cortes.empty and not df_saeplus.empty and not df_olt.empty:
-        
-            
 
-            
+
+
+
             resultado = pd.merge(
                 df_saeplus, df_cortes, how='right', left_on='N° Abonado', right_on='N° Abonado')
+
             resultado = resultado.dropna(subset=['N° Abonado'])
             resultado = pd.merge(resultado, df_olt, left_on='EQUIPO MACO_y',
                                  right_on='NSN', suffixes=('_abonados', '_cortes'))
             resultado = resultado.dropna(subset=['EQUIPO MACO_y'])
+
+
             resultado.columns = resultado.columns.str.lower()
-        
+
+
+
+
 
             columnas_deseadas = [
                   'n° abonado', 'documento_x', 'nombre_x', 'apellido_x',
                     'estatus', 'observaciones', 'sn', 'olt',
-                    'catv', 'administrative status', 'status', 'ingeniero',
+                    'catv', 'administrative status', 'status', 'ingeniero'
             ]
-        
+
 
             resultado_filtrado = resultado[columnas_deseadas]
+            print(resultado_filtrado.columns)
 
-        
             resultado_filtrado = resultado_filtrado[
             (resultado_filtrado['observaciones'].isna()) &
             (resultado_filtrado['estatus'] != 'ACTIVO') &
@@ -115,6 +128,7 @@ def cortes():
             (resultado_filtrado['catv'] != 'Disabled') |
             (resultado_filtrado['administrative status'] == 'Enabled'))
             ]
+
             resultado_filtrado = resultado_filtrado.dropna(
                 subset=['estatus'])
 
@@ -123,7 +137,7 @@ def cortes():
                 resultado_filtrado.to_excel(
                  writer_filtrado, index=False, sheet_name='Resultado Filtrado')
                 # Siempre escribir la hoja de "Resultado Aliados" (puede estar vacía)
-               
+
             output_filtrado.seek(0)
             num_casos = resultado_filtrado.shape[0]
             resultado_excel = output_filtrado
@@ -208,6 +222,8 @@ def diferentes():
             olt2 = procesar_archivo_csv_solo(olt)
         except Exception as e:
             return render_template('error.html', error=str(e))
+        print(saeplus.head())
+        print(olt2.head())
 
         if not saeplus.empty and not olt2.empty:
             # Confirmar que existen las columnas 'EQUIPO MACO' y 'NSN'
@@ -216,12 +232,13 @@ def diferentes():
                 resultado = pd.merge(saeplus, olt2, how='outer', left_on='EQUIPO MACO', right_on='NSN', suffixes=(
                     '_abonados', '_cortes'), indicator=True)
 
+
                 if '_merge' in resultado.columns:
                     # Filtrar registros donde 'EQUIPO MACO' y 'NSN' no coinciden
                     resultado_diferente = resultado[resultado['_merge'] != 'both']
 
                     resultado_solo_equipo_mac = resultado_diferente.dropna(subset=[
-                                                                           'EQUIPO MACO'])
+                                                                           'EQUIPO MAC'])
                     resultado_solo_equipo_mac = resultado_solo_equipo_mac.dropna(
                         axis=1, how='all')
                     resultado_solo_nsn = resultado_diferente.dropna(subset=[
@@ -232,6 +249,9 @@ def diferentes():
                 try:
                     output_filtrado = io.BytesIO()
                     with pd.ExcelWriter(output_filtrado, engine='xlsxwriter') as writer:
+                        resultado_diferente.to_excel(
+                            writer, sheet_name='Diferentes', index=False
+                        )
 
                         # Solo los que están en SAEPLUS pero no en OLT (left_only)
                         resultado_solo_equipo_mac.to_excel(
@@ -279,7 +299,7 @@ def sin_navegar():
             df_resultado.columns = resultado.columns.str.lower()
             columnas_deseadas = [
                 'n° abonado', 'documento', 'nombre', 'name', 'estatus', 'status',
-                'detalle suscripcion', 'nombre franquicia', 'equipo maco', 'sn', 'olt',
+                'detalle suscripcion', 'nombre franquicia', 'equipo maco', 'sn', 'olt','board', 'port',
                 'service port upload speed', 'service port download speed', 'tipo tecnología.', 'catv', 'administrative status'
             ]
             df_resultado = df_resultado[columnas_deseadas]

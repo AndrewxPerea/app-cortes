@@ -4,5 +4,6 @@ env/
 paquetes.txt
 auxiliar_pruebas.py
 auxiliar.py
-prueba.py
 conver.py
+busquedas.py
+atenuaciones.py
