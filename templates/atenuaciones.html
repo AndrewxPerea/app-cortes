@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Atenuaciones{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="container center-screen">
+        <div class="row">
+            <div class="col">
+                <h1>Auditoria de Atenuaciones</h1>
+                <form id="resultForm" action="/atenuaciones" method="post" enctype="multipart/form-data">
+                    <div class="input-group mb-3">
+                        <label class="input-group-text" for="olt_csv">Archivo OLT (CSV)</label>
+                        <input type="file" class="form-control" id="olt_csv" name="olt_csv" accept=".csv">
+                    </div>
+                    <input type="submit" class="btn btn-cafe-outline" value="Procesar Archivo">
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="container center-screen-2">
+        <div class="row">
+            <h1>Instrucciones</h1>
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        Archivo de entrada
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Exporte el CSV desde la OLT con la informacion de ONUs.</li>
+                        <li class="list-group-item">El archivo debe incluir columnas como OLT, Board, Port, Status, Signal 1310, Signal 1490 y Address.</li>
+                        <li class="list-group-item">La salida genera una agenda general y hojas separadas por tipo de daño.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

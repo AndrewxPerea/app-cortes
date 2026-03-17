@@ -1,6 +1,4 @@
-from flask import  render_template
 import pandas as pd
-import numpy as np
 from datetime import datetime
 
 def obtener_valor_plan(plan):
@@ -56,38 +54,36 @@ def procesar_excel(archivo_excel):
 
 def procesar_archivo_csv_solo(archivo):
     try:
-        # Leer el archivo CSV sin fragmentarlo
         df = pd.read_csv(archivo, low_memory=False)
-        df['NSN'] = df['SN'].astype(str).str[-8:] # Crear la columna NSN con los últimos 8 dígitos
+        if 'SN' not in df.columns:
+            raise ValueError("El archivo CSV no contiene la columna requerida 'SN'.")
+        df['NSN'] = df['SN'].astype(str).str[-8:]
         return df
-    
-    except FileNotFoundError:
-        print(f"El archivo {archivo} no se encontró.")
-        return render_template('error.html', error=str(e))
-    
+
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"El archivo {archivo} no se encontró.") from e
+
     except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return render_template('error.html', error=str(e))  # Devolver un DataFrame vacío en caso de error
+        raise ValueError(f"Ocurrió un error al procesar el CSV: {e}") from e
 
 def procesar_archivo_excel_solo(archivo):
     try:
-        # Leer el archivo Excel
         df = pd.read_excel(archivo)
+        if 'EQUIPO MAC' not in df.columns:
+            raise ValueError("El archivo Excel no contiene la columna requerida 'EQUIPO MAC'.")
         df['EQUIPO MACO'] = df['EQUIPO MAC'].astype(str).str[-8:]
         return df
 
-    except FileNotFoundError:
-        print(f"El archivo {archivo} no se encontró.")
-        return render_template('error.html', error=str(e))
-    
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"El archivo {archivo} no se encontró.") from e
+
     except Exception as e:
-        print(f"Ocurrió un error al procesar {archivo}:", e)
-        return render_template('error.html', error=str(e)) 
+        raise ValueError(f"Ocurrió un error al procesar el Excel: {e}") from e
 
 def normalizar_columnas(df, rename_col):
-                df = df.rename(columns={df.columns[0]: rename_col})
-                df.columns = df.columns.str.lower()      
-                return df
+    df = df.rename(columns={df.columns[0]: rename_col})
+    df.columns = df.columns.str.lower()
+    return df
 
 def clasificar_estado_potencia(potencia):
     if potencia <= -33:
