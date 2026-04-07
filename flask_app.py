@@ -3,7 +3,7 @@ import tempfile
 import unicodedata
 from datetime import datetime
 
-from flask import Flask, render_template, request, send_file, session
+from flask import Flask, redirect, render_template, request, send_file, session
 
 from services.atenuaciones import procesar_atenuaciones
 from services.auditoria_reconexiones import procesar_auditoria_reconexiones
@@ -105,6 +105,7 @@ def renderizar_formulario_analisis(
     archivos_requeridos,
     pasos,
     campos_archivo,
+    campos_texto=None,
     volver_url='/',
     volver_texto='Volver al inicio',
     enlaces_relacionados=None,
@@ -120,6 +121,7 @@ def renderizar_formulario_analisis(
         archivos_requeridos=archivos_requeridos,
         pasos=pasos,
         campos_archivo=campos_archivo,
+        campos_texto=campos_texto or [],
         volver_url=volver_url,
         volver_texto=volver_texto,
         enlaces_relacionados=enlaces_relacionados or [],
@@ -399,7 +401,8 @@ def comparativo_precintos():
             )
             resultado = procesar_comparativo_precintos(
                 archivos['saeplus'],
-                archivos['olt']
+                archivos['olt'],
+                request.form.get('precintos_texto', '')
             )
         except Exception as e:
             return render_template('error.html', error=str(e))
@@ -408,7 +411,7 @@ def comparativo_precintos():
 
     return renderizar_formulario_analisis(
         'Comparativo de Precintos',
-        'Compara SAEPlus y SmartOLT para identificar qué abonados coinciden y cuáles no coinciden, ayudando a revisar estados y detectar posibles precintos perdidos.',
+        'Centraliza la revisión de precintos en un solo análisis: compara SAEPlus y SmartOLT, sugiere zonas cercanas para buscar precintos no registrados y permite contrastar un archivo adicional de números de precinto contra SAEPlus.',
         '/comparativo_precintos',
         'Comparativo de precintos',
         [
@@ -417,24 +420,45 @@ def comparativo_precintos():
             'Visualización del estatus comercial de SAEPlus y del status técnico de SmartOLT en el mismo comparativo.',
             'Resaltado de los abonados de SAEPlus cuyo campo precinto está vacío.',
             'Orden alfabético por la columna estatus y, como segundo criterio, por la columna precinto de menor a mayor.',
+            'Lectura de otra hoja del mismo Excel SAEPlus para relacionar barrio, dirección y ciudad cuando estén en una pestaña diferente.',
+            'Detección de zonas cercanas cuando en SAEPlus hay precinto vacío y en SmartOLT aparecen estados Offline, Power fail o LOS.',
+            'Comparación opcional entre los números de precinto escritos en la web y la columna precinto del Excel de SAEPlus.',
         ],
-        'Se genera un Excel con una sola pestaña llamada Coinciden, enfocada únicamente en los abonados coincidentes y ordenada por estatus y precinto.',
+        'Se genera un Excel con las hojas Coinciden y Detalle cruce, y además una hoja inicial de Precintos cargados cuando escribes precintos en la web.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV.',
+            'Campo opcional para escribir o pegar números de precinto directamente desde la página.',
         ],
         [
             'Exporta el archivo de abonados desde SAEPlus incluyendo la columna precinto.',
+            'Si barrio, dirección o ciudad están en otra hoja del mismo libro, consérvala dentro del mismo Excel.',
             'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
+            'Si deseas comparar una lista de precintos, escríbelos o pégalos en el campo de texto de la página.',
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo.',
-            'Carga ambos archivos en el formulario.',
-            'Ejecuta el análisis y revisa la pestaña Coinciden del Excel resultante para validar estados, precintos vacíos y organización del listado.',
+            'Carga SAEPlus y SmartOLT, y diligencia el campo de precintos solo si lo necesitas.',
+            'Ejecuta el análisis y revisa las hojas del Excel resultante para validar coincidencias, cruces cercanos y comparación de precintos cargados.',
         ],
         [
             {'id': 'saeplus', 'name': 'saeplus', 'label': 'Archivo de Abonados SAEPlus (Excel)', 'accept': '.xlsx,.xls'},
             {'id': 'olt', 'name': 'olt', 'label': 'Archivo de Abonados SmartOLT (CSV)', 'accept': '.csv'},
         ],
+        campos_texto=[
+            {
+                'id': 'precintos_texto',
+                'name': 'precintos_texto',
+                'label': 'Precintos para comparar (Opcional)',
+                'rows': 8,
+                'placeholder': 'Ejemplo:\nPREC-10\nPREC-22\nPREC-99',
+                'help': 'Puedes pegar uno por línea o separados por comas, punto y coma, espacios o tabulaciones.',
+            },
+        ],
     )
+
+
+@app.route('/precintos_cercanos')
+def redirigir_precintos_cercanos():
+    return redirect('/comparativo_precintos')
 
 
 @app.route('/sin_navegar', methods=['GET', 'POST'])

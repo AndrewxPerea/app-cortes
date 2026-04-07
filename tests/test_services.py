@@ -19,6 +19,7 @@ from services.navegacion import (
     procesar_navegacion_solo_con_arroba_y_catv_activo,
     procesar_sin_navegar,
 )
+from services.precintos_cercanos import procesar_precintos_cercanos
 from services.reconexiones import procesar_reconexiones
 from services.upload_validation import validar_archivos_requeridos
 from services.velocidad import (
@@ -364,11 +365,13 @@ class DiferentesServiceTests(unittest.TestCase):
         self.assertIn('observacion_precinto', resultado['data'].columns)
         self.assertIn('barrio', resultado['data'].columns)
         self.assertIn('dirección', resultado['data'].columns)
-        self.assertIn('ciudad', resultado['data'].columns)
+        self.assertNotIn('ciudad', resultado['data'].columns)
+        self.assertNotIn('resultado_comparativo', resultado['data'].columns)
+        self.assertNotIn('name', resultado['data'].columns)
 
         self.assertEqual(
-            resultado['data']['n° abonado'].tolist(),
-            [4102, 4101, 4103, 4104]
+            resultado['data']['n° abonado'].astype(str).tolist(),
+            ['4102', '4101', '4103', '4104']
         )
         self.assertEqual(
             resultado['data']['estatus'].tolist(),
@@ -378,20 +381,153 @@ class DiferentesServiceTests(unittest.TestCase):
             resultado['data']['precinto'].fillna('').tolist(),
             ['PREC-05', 'PREC-22', '', 'PREC-99']
         )
-        self.assertTrue((resultado['data']['resultado_comparativo'] == 'Coincide').all())
         self.assertEqual(resultado['data'].iloc[0]['barrio'], 'La Floresta')
         self.assertEqual(resultado['data'].iloc[0]['dirección'], 'Calle 8 # 15-30')
-        self.assertEqual(resultado['data'].iloc[0]['ciudad'], 'Pereira')
-        self.assertNotIn(4105, resultado['data']['n° abonado'].dropna().tolist())
+        self.assertNotIn('4105', resultado['data']['n° abonado'].dropna().astype(str).tolist())
         self.assertEqual(
-            resultado['data'].loc[resultado['data']['n° abonado'] == 4103, 'observacion_precinto'].tolist(),
+            resultado['data'].loc[resultado['data']['n° abonado'].astype(str) == '4103', 'observacion_precinto'].tolist(),
             ['Precinto vacío en SAEPlus']
         )
 
         excel = pd.ExcelFile(resultado['excel'])
-        self.assertEqual(excel.sheet_names, ['Coinciden'])
+        self.assertEqual(excel.sheet_names, ['Coinciden', 'Detalle cruce'])
         hoja_coinciden = excel.parse('Coinciden')
-        self.assertEqual(hoja_coinciden['n° abonado'].tolist(), [4102, 4101, 4103, 4104])
+        self.assertEqual(
+            hoja_coinciden.columns.tolist(),
+            ['observacion_precinto', 'n° abonado', 'documento', 'nombre', 'estatus', 'barrio', 'dirección', 'precinto', 'equipo maco', 'status', 'sn', 'olt']
+        )
+        self.assertEqual(hoja_coinciden['n° abonado'].astype(str).tolist(), ['4102', '4101', '4103', '4104'])
+
+    def test_procesar_comparativo_precintos_incluye_cercania_y_precintos_cargados(self):
+        saeplus_base = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+                'AA:BB:CC:11:22:22222222',
+                'AA:BB:CC:11:22:33333333',
+            ],
+            'N° Abonado': [7001, 7002, 7003, 7004, 7005],
+            'documento': ['11', '22', '33', '44', '55'],
+            'nombre': ['Ana', 'Luis', 'Carla', 'Pedro', 'Marta'],
+            'estatus': ['ACTIVO', 'ACTIVO', 'ACTIVO', 'ACTIVO', 'ACTIVO'],
+            'precinto': ['', 'PREC-10', '', 'PREC-20', ''],
+        })
+        saeplus_ubicacion = pd.DataFrame({
+            'N° Abonado': [7001, 7002, 7003, 7004, 7005],
+            'Barrio': ['Centro', 'Centro', 'Bosques', 'Centro', 'Alamos'],
+            'Dirección': [
+                'Cra 1 # 10-20',
+                'Cra 1 # 10-25',
+                'Calle 8 # 15-30',
+                'Cra 1 # 11-05',
+                'Mz 9 Casa 1',
+            ],
+            'Ciudad': ['Pereira', 'Pereira', 'Cartago', 'Pereira', 'Cartago'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN87654321', 'SN11111111', 'SN22222222', 'SN33333333'],
+            'name': ['ONT Ana', 'ONT Luis', 'ONT Carla', 'ONT Pedro', 'ONT Marta'],
+            'status': ['Online', 'Offline', 'LOS', 'Power fail', 'Online'],
+            'olt': ['OLT-1', 'OLT-1', 'OLT-2', 'OLT-3', 'OLT-4'],
+        })
+        precintos_texto = 'PREC-10\nPREC-99'
+
+        saeplus_excel = excel_desde_hojas([
+            ('Base', saeplus_base),
+            ('Ubicaciones', saeplus_ubicacion),
+        ])
+        resultado = procesar_comparativo_precintos(
+            saeplus_excel,
+            csv_buffer(olt),
+            precintos_texto
+        )
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(
+            excel.sheet_names,
+            ['Precintos cargados', 'Coinciden', 'Detalle cruce']
+        )
+
+        hoja_precintos = excel.parse('Precintos cargados')
+        self.assertEqual(
+            hoja_precintos.columns.tolist(),
+            ['precinto cargado', 'coincide en saeplus', 'precinto saeplus', 'n° abonado', 'documento', 'nombre', 'estatus', 'ciudad', 'barrio', 'dirección']
+        )
+        self.assertEqual(hoja_precintos['precinto cargado'].tolist(), ['PREC-10', 'PREC-99'])
+        self.assertEqual(hoja_precintos['coincide en saeplus'].tolist(), ['Si', 'No'])
+        self.assertEqual(
+            hoja_precintos.loc[
+                hoja_precintos['precinto cargado'] == 'PREC-10',
+                'n° abonado'
+            ].astype(str).str.replace('.0', '', regex=False).tolist(),
+            ['7002']
+        )
+
+        hoja_coinciden = excel.parse('Coinciden')
+        self.assertEqual(
+            hoja_coinciden.columns.tolist(),
+            ['observacion_precinto', 'n° abonado', 'documento', 'nombre', 'estatus', 'barrio', 'dirección', 'precinto', 'equipo maco', 'status', 'sn', 'olt']
+        )
+
+    def test_procesar_precintos_cercanos_relaciona_ubicacion_y_alertas(self):
+        saeplus_base = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+                'AA:BB:CC:11:22:22222222',
+                'AA:BB:CC:11:22:33333333',
+            ],
+            'N° Abonado': [7001, 7002, 7003, 7004, 7005],
+            'documento': ['11', '22', '33', '44', '55'],
+            'nombre': ['Ana', 'Luis', 'Carla', 'Pedro', 'Marta'],
+            'estatus': ['ACTIVO', 'ACTIVO', 'ACTIVO', 'ACTIVO', 'ACTIVO'],
+            'precinto': ['', 'PREC-10', '', 'PREC-20', ''],
+        })
+        saeplus_ubicacion = pd.DataFrame({
+            'N° Abonado': [7001, 7002, 7003, 7004, 7005],
+            'Barrio': ['Centro', 'Centro', 'Bosques', 'Centro', 'Alamos'],
+            'Dirección': [
+                'Cra 1 # 10-20',
+                'Cra 1 # 10-25',
+                'Calle 8 # 15-30',
+                'Cra 1 # 11-05',
+                'Mz 9 Casa 1',
+            ],
+            'Ciudad': ['Pereira', 'Pereira', 'Cartago', 'Pereira', 'Cartago'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN87654321', 'SN11111111', 'SN22222222', 'SN33333333'],
+            'name': ['ONT Ana', 'ONT Luis', 'ONT Carla', 'ONT Pedro', 'ONT Marta'],
+            'status': ['Online', 'Offline', 'LOS', 'Power fail', 'Online'],
+            'olt': ['OLT-1', 'OLT-1', 'OLT-2', 'OLT-3', 'OLT-4'],
+        })
+
+        saeplus_excel = excel_desde_hojas([
+            ('Base', saeplus_base),
+            ('Ubicaciones', saeplus_ubicacion),
+        ])
+        resultado = procesar_precintos_cercanos(saeplus_excel, csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 2)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), ['7001', '7003'])
+        self.assertEqual(resultado['data']['cantidad alertas cercanas'].tolist(), [2, 1])
+        self.assertEqual(resultado['data'].iloc[0]['barrio'], 'Centro')
+        self.assertEqual(resultado['data'].iloc[0]['referencia dirección'], 'CRA 1 10')
+        self.assertIn('7002', resultado['data'].iloc[0]['abonados alerta cercanos'])
+        self.assertIn('7004', resultado['data'].iloc[0]['abonados alerta cercanos'])
+        self.assertEqual(
+            resultado['data'].loc[resultado['data']['n° abonado'] == '7003', 'criterios detectados'].tolist(),
+            ['Mismo abonado']
+        )
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Zonas sugeridas', 'Detalle cruce'])
+        hoja_detalle = excel.parse('Detalle cruce')
+        self.assertIn('Mismo barrio y dirección aproximada', hoja_detalle['criterio cercanía'].tolist())
+        self.assertIn('Mismo abonado', hoja_detalle['criterio cercanía'].tolist())
+        self.assertNotIn(7005, hoja_detalle['n° abonado sin precinto'].dropna().tolist())
 
 
 class NavegacionServiceTests(unittest.TestCase):

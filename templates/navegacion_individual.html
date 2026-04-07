@@ -29,8 +29,27 @@
                                 id="{{ campo.id }}"
                                 name="{{ campo.name }}"
                                 {% if campo.accept %}accept="{{ campo.accept }}"{% endif %}
-                                required
+                                {% if campo.required is not defined or campo.required %}required{% endif %}
                             >
+                        </div>
+                        {% if campo.help %}
+                        <div class="form-text mb-3">{{ campo.help }}</div>
+                        {% endif %}
+                        {% endfor %}
+                        {% for campo in campos_texto or [] %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ campo.id }}">{{ campo.label }}</label>
+                            <textarea
+                                class="form-control"
+                                id="{{ campo.id }}"
+                                name="{{ campo.name }}"
+                                rows="{{ campo.rows or 6 }}"
+                                placeholder="{{ campo.placeholder or '' }}"
+                                {% if campo.required %}required{% endif %}
+                            >{{ campo.value or '' }}</textarea>
+                            {% if campo.help %}
+                            <div class="form-text">{{ campo.help }}</div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                         <input type="submit" class="btn btn-cafe-outline" value="Procesar Archivos">

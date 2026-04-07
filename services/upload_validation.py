@@ -24,3 +24,22 @@ def validar_archivos_requeridos(request_files, definiciones):
         archivos[nombre_campo] = archivo
 
     return archivos
+
+
+def validar_archivo_opcional(request_files, nombre_campo, extensiones, etiqueta):
+    archivo = request_files.get(nombre_campo)
+    if archivo is None:
+        return None
+
+    nombre = (archivo.filename or "").strip()
+    if not nombre:
+        return None
+
+    extension = os.path.splitext(nombre)[1].lower()
+    if extension not in extensiones:
+        extensiones_texto = ", ".join(sorted(extensiones))
+        raise ValueError(
+            f"El archivo {etiqueta} debe tener una de estas extensiones: {extensiones_texto}."
+        )
+
+    return archivo

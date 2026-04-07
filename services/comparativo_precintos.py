@@ -1,9 +1,16 @@
 import io
+import re
 
 import pandas as pd
 
-from funciones import procesar_archivo_csv_solo, procesar_archivo_excel_solo
+from funciones import procesar_archivo_csv_solo
 from services.common import validar_columnas
+from services.precintos_cercanos import (
+    construir_analisis_precintos_cercanos_desde_coincidencias,
+    cargar_saeplus_con_ubicacion,
+    normalizar_texto,
+    valor_tiene_contenido,
+)
 
 
 def serie_o_vacia(df, columna):
@@ -27,31 +34,24 @@ def valor_ordenado(serie):
 
 
 def construir_tabla_comparativa(resultado):
+    resultado = resultado[resultado['_merge'] == 'both'].copy()
     tabla = pd.DataFrame({
-        'resultado_comparativo': resultado['_merge'].map({
-            'both': 'Coincide',
-            'left_only': 'Solo en SAEPlus',
-            'right_only': 'Solo en SmartOLT',
-        }),
         'observacion_precinto': serie_o_vacia(resultado, 'precinto').apply(
             lambda valor: 'Precinto vacío en SAEPlus' if precinto_vacio(valor) else ''
         ),
-        'n° abonado': serie_o_vacia(resultado, 'n° abonado'),
+        'n° abonado': serie_o_vacia(resultado, ['n° abonado', 'n abonado']),
         'documento': serie_o_vacia(resultado, 'documento'),
         'nombre': serie_o_vacia(resultado, 'nombre'),
         'estatus': serie_o_vacia(resultado, 'estatus'),
         'barrio': serie_o_vacia(resultado, 'barrio'),
         'dirección': serie_o_vacia(resultado, ['dirección', 'direccion']),
-        'ciudad': serie_o_vacia(resultado, 'ciudad'),
         'precinto': serie_o_vacia(resultado, 'precinto'),
         'equipo maco': serie_o_vacia(resultado, 'equipo maco'),
-        'name': serie_o_vacia(resultado, 'name'),
         'status': serie_o_vacia(resultado, 'status'),
         'sn': serie_o_vacia(resultado, 'sn'),
         'olt': serie_o_vacia(resultado, 'olt'),
     })
 
-    tabla = tabla[tabla['resultado_comparativo'] == 'Coincide'].copy()
     tabla['orden_estatus'] = valor_ordenado(tabla['estatus'])
     tabla['orden_precinto'] = valor_ordenado(tabla['precinto'])
     tabla = tabla.sort_values(
@@ -60,6 +60,86 @@ def construir_tabla_comparativa(resultado):
         na_position='last'
     ).drop(columns=['orden_estatus', 'orden_precinto'])
     return tabla
+
+
+def cargar_precintos_referencia(texto_precintos):
+    if texto_precintos is None:
+        return None
+
+    valores = [
+        valor.strip()
+        for valor in re.split(r'[\s,;]+', str(texto_precintos))
+        if valor.strip()
+    ]
+    if not valores:
+        return None
+
+    precintos = pd.DataFrame({
+        'origen captura': ['Formulario web'] * len(valores),
+        'precinto cargado': valores,
+    })
+    precintos['precinto normalizado'] = precintos['precinto cargado'].apply(normalizar_texto)
+    precintos = precintos[precintos['precinto normalizado'].apply(valor_tiene_contenido)].copy()
+    if precintos.empty:
+        return None
+
+    precintos.insert(0, 'orden carga', range(1, len(precintos) + 1))
+    return precintos
+
+
+def construir_comparacion_precintos_cargados(saeplus, texto_precintos):
+    precintos_cargados = cargar_precintos_referencia(texto_precintos)
+    if precintos_cargados is None:
+        return None
+
+    sae_precintos = saeplus[saeplus['precinto'].apply(valor_tiene_contenido)].copy()
+    sae_precintos['precinto normalizado'] = sae_precintos['precinto'].apply(normalizar_texto)
+    sae_precintos['n° abonado'] = sae_precintos['n abonado']
+    sae_precintos['dirección'] = sae_precintos['direccion']
+
+    comparacion = precintos_cargados.merge(
+        sae_precintos[
+            [
+                'precinto normalizado',
+                'precinto',
+                'n° abonado',
+                'documento',
+                'nombre',
+                'estatus',
+                'ciudad',
+                'barrio',
+                'dirección',
+                'equipo maco',
+            ]
+        ],
+        on='precinto normalizado',
+        how='left'
+    )
+    comparacion['coincide en saeplus'] = comparacion['n° abonado'].notna().map({
+        True: 'Si',
+        False: 'No',
+    })
+
+    comparacion = comparacion.rename(columns={
+        'precinto': 'precinto saeplus',
+    })
+    comparacion = comparacion[
+        [
+            'precinto cargado',
+            'coincide en saeplus',
+            'precinto saeplus',
+            'n° abonado',
+            'documento',
+            'nombre',
+            'estatus',
+            'ciudad',
+            'barrio',
+            'dirección',
+            'orden carga',
+        ]
+    ].sort_values(by=['orden carga', 'coincide en saeplus', 'n° abonado'], ascending=[True, False, True])
+
+    return comparacion.drop(columns=['orden carga']).reset_index(drop=True)
 
 
 def escribir_hoja(writer, sheet_name, df):
@@ -79,24 +159,25 @@ def escribir_hoja(writer, sheet_name, df):
             worksheet.set_row(fila_excel, None, destacado)
 
 
-def generar_excel_comparativo(coinciden):
+def generar_excel_comparativo(coinciden, detalle_cruce, comparacion_precintos=None):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        if comparacion_precintos is not None:
+            escribir_hoja(writer, 'Precintos cargados', comparacion_precintos)
         escribir_hoja(writer, 'Coinciden', coinciden)
+        escribir_hoja(writer, 'Detalle cruce', detalle_cruce)
     output.seek(0)
     return output
 
 
-def procesar_comparativo_precintos(saeplus_file, olt_file):
-    saeplus = procesar_archivo_excel_solo(saeplus_file)
+def procesar_comparativo_precintos(saeplus_file, olt_file, texto_precintos=''):
+    saeplus = cargar_saeplus_con_ubicacion(saeplus_file, requerir_ubicacion=False)
     olt = procesar_archivo_csv_solo(olt_file)
 
-    saeplus.columns = saeplus.columns.str.lower()
     olt.columns = olt.columns.str.lower()
-
     validar_columnas(
         saeplus,
-        ['equipo maco', 'n° abonado', 'documento', 'nombre', 'estatus', 'precinto'],
+        ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],
         'SAEPlus'
     )
     validar_columnas(
@@ -114,11 +195,25 @@ def procesar_comparativo_precintos(saeplus_file, olt_file):
         indicator=True,
         suffixes=('_saeplus', '_smartolt')
     )
+    coincidencias_raw = pd.merge(
+        saeplus,
+        olt[['nsn', 'name', 'status', 'sn', 'olt']],
+        how='inner',
+        left_on='equipo maco',
+        right_on='nsn'
+    )
 
     tabla = construir_tabla_comparativa(resultado)
+    _, detalle_cruce = construir_analisis_precintos_cercanos_desde_coincidencias(coincidencias_raw)
+    comparacion_precintos = construir_comparacion_precintos_cargados(saeplus, texto_precintos)
+
     return {
         'data': tabla,
         'columns': tabla.columns.tolist(),
         'num_casos': int(tabla.shape[0]),
-        'excel': generar_excel_comparativo(tabla),
+        'excel': generar_excel_comparativo(
+            tabla,
+            detalle_cruce,
+            comparacion_precintos
+        ),
     }
