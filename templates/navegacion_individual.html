@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h1 class="mb-3">{{ titulo }}</h1>
+                    <p class="text-muted mb-4">{{ descripcion }}</p>
+                    <div class="mb-3">
+                        <a class="btn btn-outline-secondary" href="{{ volver_url }}">{{ volver_texto }}</a>
+                    </div>
+                    {% if enlaces_relacionados %}
+                    <div class="mb-3 d-flex flex-wrap gap-2">
+                        {% for enlace in enlaces_relacionados %}
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ enlace.href }}">{{ enlace.label }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <form id="resultForm" action="{{ action_url }}" method="post" enctype="multipart/form-data">
+                        {% for campo in campos_archivo %}
+                        <div class="input-group mb-3">
+                            <label class="input-group-text" for="{{ campo.id }}">{{ campo.label }}</label>
+                            <input
+                                type="file"
+                                class="form-control"
+                                id="{{ campo.id }}"
+                                name="{{ campo.name }}"
+                                {% if campo.accept %}accept="{{ campo.accept }}"{% endif %}
+                                required
+                            >
+                        </div>
+                        {% endfor %}
+                        <input type="submit" class="btn btn-cafe-outline" value="Procesar Archivos">
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h3 class="mb-3">Objetivo del análisis</h3>
+                    <p class="mb-0">{{ descripcion }}</p>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h3 class="mb-3">Criterios que revisa</h3>
+                    <ul class="mb-0">
+                        {% for criterio in criterios %}
+                            <li>{{ criterio }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h3 class="mb-3">Archivo de salida</h3>
+                    <p class="mb-2">{{ resultado_esperado }}</p>
+                    <p class="mb-0"><strong>Nombre sugerido de descarga:</strong> {{ nombre_descarga }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-4">
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h3 class="mb-3">Archivos requeridos</h3>
+                    <ul class="mb-0">
+                        {% for archivo in archivos_requeridos %}
+                            <li>{{ archivo }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h3 class="mb-3">Paso a paso</h3>
+                    <ol class="mb-0">
+                        {% for paso in pasos %}
+                            <li>{{ paso }}</li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

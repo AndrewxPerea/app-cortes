@@ -6,6 +6,16 @@
     <div class="row">
         <div class="col">
             <h1>Auditoria de servicios de usuarios</h1>
+            <p class="text-muted">
+                Esta auditoría general genera un solo Excel con cuatro hojas. Si prefieres
+                ejecutar cada análisis por separado, puedes abrir las nuevas vistas individuales.
+            </p>
+            <div class="mb-3 d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-secondary" href="/navegacion_activos_sin_navegar">Activos sin navegar</a>
+                <a class="btn btn-outline-secondary" href="/navegacion_desactivos_con_internet">Desactivos con internet</a>
+                <a class="btn btn-outline-secondary" href="/navegacion_activos_sin_catv">Activos sin CATV</a>
+                <a class="btn btn-outline-secondary" href="/navegacion_solo_con_arroba_y_catv_activo">Solo con @ y CATV activo</a>
+            </div>
             <form id="resultForm" action="/sin_navegar" method="post" enctype="multipart/form-data">
                 <div class="input-group mb-3">
                     <label class="input-group-text" for="abonados">Archivo de Abonados (Excel)</label>

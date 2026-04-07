@@ -6,12 +6,28 @@ import pandas as pd
 from services.common import excel_desde_dataframe, excel_desde_hojas, validar_columnas
 from services.atenuaciones import procesar_atenuaciones
 from services.auditoria_reconexiones import procesar_auditoria_reconexiones
+from services.ciudades_abonado import agregar_columna_ciudad
+from services.comparativo_precintos import procesar_comparativo_precintos
+from services.coincidencia_en_fila import procesar_coincidencia_en_fila
+from services.coincidencias_saeplus_smartolt import procesar_coincidencias_saeplus_smartolt
 from services.cortes import procesar_cortes
 from services.diferentes import procesar_diferentes
-from services.navegacion import procesar_sin_navegar
+from services.navegacion import (
+    procesar_navegacion_activos_sin_catv,
+    procesar_navegacion_activos_sin_navegar,
+    procesar_navegacion_desactivos_con_internet,
+    procesar_navegacion_solo_con_arroba_y_catv_activo,
+    procesar_sin_navegar,
+)
 from services.reconexiones import procesar_reconexiones
 from services.upload_validation import validar_archivos_requeridos
-from services.velocidad import extraer_velocidad, procesar_verificacion_velocidad
+from services.velocidad import (
+    catv_esta_activo,
+    es_plan_solo_internet,
+    extraer_velocidad,
+    normalizar_velocidad_red,
+    procesar_verificacion_velocidad,
+)
 
 
 def excel_buffer(df):
@@ -27,6 +43,39 @@ def csv_buffer(df):
     df.to_csv(buffer, index=False)
     buffer.seek(0)
     return buffer
+
+
+def navegacion_archivos():
+    abonados = pd.DataFrame({
+        'EQUIPO MAC': [
+            'AA:BB:CC:11:22:12345678',
+            'AA:BB:CC:11:22:87654321',
+            'AA:BB:CC:11:22:ABCDEF12',
+            'AA:BB:CC:11:22:11223344',
+        ],
+        'N° Abonado': [5001, 5002, 5003, 5004],
+        'documento': ['90', '91', '92', '93'],
+        'nombre': ['Luisa', 'Mario', 'Sara', 'Ana'],
+        'estatus': ['ACTIVO', 'SUSPENDIDO', 'ACTIVO', 'ACTIVO'],
+        'detalle suscripcion': ['GPON 50 MG', 'GPON 30 MG', 'GPON 70 MG', 'PLAN @ 100 MG'],
+        'nombre franquicia': ['Norte', 'Centro', 'Sur', 'Centro'],
+        'tipo tecnología.': ['GPON', 'GPON', 'GPON', 'GPON'],
+        'catv abonado': ['Enabled', 'Enabled', 'Disabled', 'Enabled'],
+        'administrative status abonado': ['Enabled', 'Enabled', 'Enabled', 'Enabled'],
+    })
+    olt = pd.DataFrame({
+        'SN': ['SN12345678', 'SN87654321', 'SNABCDEF12', 'SN11223344'],
+        'name': ['ONT Luisa', 'ONT Mario', 'ONT Sara', 'ONT Ana'],
+        'status': ['Offline', 'Online', 'Online', 'Online'],
+        'olt': ['OLT-3', 'OLT-4', 'OLT-5', 'OLT-6'],
+        'board': ['1', '2', '3', '4'],
+        'port': ['10', '11', '12', '13'],
+        'service port upload speed': ['10MG', '10MG', '20MG', '20MG'],
+        'service port download speed': ['50MG', '30MG', '70MG', '100MG'],
+        'catv': ['Enabled', 'Enabled', 'Disabled', 'Enabled'],
+        'administrative status': ['Disabled', 'Enabled', 'Enabled', 'Enabled'],
+    })
+    return excel_buffer(abonados), csv_buffer(olt)
 
 
 class CommonServicesTests(unittest.TestCase):
@@ -114,6 +163,22 @@ class VelocidadServiceTests(unittest.TestCase):
     def test_extraer_velocidad_retorna_none_si_no_hay_velocidad(self):
         self.assertIsNone(extraer_velocidad('Plan sin valor numerico'))
 
+    def test_extraer_velocidad_detecta_solo_arroba_sin_mg(self):
+        self.assertEqual(extraer_velocidad('SOLO @ 100 $70.000'), '100MG')
+
+    def test_es_plan_solo_internet_detecta_palabra_solo(self):
+        self.assertTrue(es_plan_solo_internet('SOLO INTERNET 100 MG'))
+        self.assertFalse(es_plan_solo_internet('PLAN HOGAR 100 MG'))
+
+    def test_catv_esta_activo_acepta_enable_y_enabled(self):
+        self.assertTrue(catv_esta_activo('Enable'))
+        self.assertTrue(catv_esta_activo('Enabled'))
+        self.assertFalse(catv_esta_activo('Disabled'))
+
+    def test_normalizar_velocidad_red_detecta_valor_numerico(self):
+        self.assertEqual(normalizar_velocidad_red('100MG'), '100MG')
+        self.assertEqual(normalizar_velocidad_red('100'), '100MG')
+
     def test_procesar_verificacion_velocidad_detecta_desajuste(self):
         saeplus = pd.DataFrame({
             'EQUIPO MAC': ['AA:BB:CC:11:22:12345678'],
@@ -131,12 +196,67 @@ class VelocidadServiceTests(unittest.TestCase):
             'olt': ['OLT-1'],
             'service port upload speed': ['10MG'],
             'service port download speed': ['50MG'],
+            'catv': ['Disabled'],
         })
 
         resultado = procesar_verificacion_velocidad(excel_buffer(saeplus), csv_buffer(olt))
 
         self.assertEqual(resultado['num_casos'], 1)
         self.assertEqual(resultado['data']['n° abonado'].tolist(), [2001])
+        self.assertEqual(resultado['data']['motivo_revision'].tolist(), ['Velocidad no coincide'])
+
+    def test_procesar_verificacion_velocidad_detecta_solo_internet_con_catv_activo(self):
+        saeplus = pd.DataFrame({
+            'EQUIPO MAC': ['AA:BB:CC:11:22:87654321'],
+            'N° Abonado': [2002],
+            'documento': ['56'],
+            'nombre': ['Diego'],
+            'estatus': ['ACTIVO'],
+            'detalle suscripcion': ['SOLO INTERNET 100 MG $80.000'],
+            'nombre franquicia': ['Centro'],
+            'tipo tecnología.': ['GPON'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN87654321'],
+            'name': ['ONT Diego'],
+            'olt': ['OLT-2'],
+            'service port upload speed': ['10MG'],
+            'service port download speed': ['100MG'],
+            'catv': ['Enable'],
+        })
+
+        resultado = procesar_verificacion_velocidad(excel_buffer(saeplus), csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [2002])
+        self.assertEqual(
+            resultado['data']['motivo_revision'].tolist(),
+            ['Plan solo internet con CATV activo']
+        )
+
+    def test_procesar_verificacion_velocidad_no_marca_solo_internet_si_catv_esta_disabled_y_velocidad_coincide(self):
+        saeplus = pd.DataFrame({
+            'EQUIPO MAC': ['AA:BB:CC:11:22:6B520246'],
+            'N° Abonado': ['C016454'],
+            'documento': ['5982345.0'],
+            'nombre': ['ESTEBAN'],
+            'estatus': ['ACTIVO'],
+            'detalle suscripcion': ['SOLO @ 100 $70.000'],
+            'nombre franquicia': ['CARTAGO'],
+            'tipo tecnología.': ['SMARTOLT_1_CARTAGO'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['XPON6B520246'],
+            'name': ['C016454 - 5982345 - ESTEBAN SOGAMOSO GONZALEZ'],
+            'olt': ['301_OLT_1_CARTAGO'],
+            'service port upload speed': ['100MG'],
+            'service port download speed': ['100MG'],
+            'catv': ['Disabled'],
+        })
+
+        resultado = procesar_verificacion_velocidad(excel_buffer(saeplus), csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 0)
 
 
 class CortesServiceTests(unittest.TestCase):
@@ -189,6 +309,90 @@ class DiferentesServiceTests(unittest.TestCase):
         self.assertEqual(resultado['num_casos'], 2)
         self.assertIn('_merge', resultado['data'].columns)
 
+    def test_procesar_coincidencias_saeplus_smartolt_devuelve_solo_registros_que_empatan(self):
+        saeplus = pd.DataFrame({
+            'EQUIPO MAC': ['AA:BB:CC:11:22:12345678', 'AA:BB:CC:11:22:87654321'],
+            'N° Abonado': [4001, 4002],
+            'nombre': ['Ana', 'Luis'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN99999999'],
+            'olt': ['OLT-1', 'OLT-2'],
+            'status': ['Online', 'Offline'],
+        })
+
+        resultado = procesar_coincidencias_saeplus_smartolt(excel_buffer(saeplus), csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['N° Abonado'].tolist(), [4001])
+        self.assertEqual(resultado['data']['NSN'].tolist(), ['12345678'])
+
+    def test_procesar_comparativo_precintos_devuelve_solo_coincidencias_ordenadas(self):
+        saeplus = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+                'AA:BB:CC:11:22:22222222',
+                'AA:BB:CC:11:22:33333333',
+            ],
+            'N° Abonado': [4101, 4102, 4103, 4104, 4105],
+            'documento': ['10', '20', '30', '40', '50'],
+            'nombre': ['Ana', 'Luis', 'Carla', 'Pedro', 'Marta'],
+            'estatus': ['ACTIVO', 'ACTIVO', 'EN REVISION', 'SUSPENDIDO', 'ACTIVO'],
+            'Barrio': ['Centro', 'La Floresta', 'Alamos', 'Galan', 'Bosques'],
+            'Dirección': [
+                'Cra 1 # 10-20',
+                'Calle 8 # 15-30',
+                'Mz 4 Casa 9',
+                'Cra 7 # 2-10',
+                'Calle 100 # 50-20',
+            ],
+            'Ciudad': ['Cartago', 'Pereira', 'Dosquebradas', 'Santa Rosa', 'Pereira'],
+            'precinto': ['PREC-22', 'PREC-05', '', 'PREC-99', 'PREC-40'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN87654321', 'SN11111111', 'SN22222222', 'SN99999999'],
+            'name': ['ONT Ana', 'ONT Luis', 'ONT Carla', 'ONT Pedro', 'ONT Extra'],
+            'status': ['Online', 'Online', 'Offline', 'Offline', 'Offline'],
+            'olt': ['OLT-1', 'OLT-1', 'OLT-2', 'OLT-3', 'OLT-4'],
+        })
+
+        resultado = procesar_comparativo_precintos(excel_buffer(saeplus), csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 4)
+        self.assertIn('observacion_precinto', resultado['data'].columns)
+        self.assertIn('barrio', resultado['data'].columns)
+        self.assertIn('dirección', resultado['data'].columns)
+        self.assertIn('ciudad', resultado['data'].columns)
+
+        self.assertEqual(
+            resultado['data']['n° abonado'].tolist(),
+            [4102, 4101, 4103, 4104]
+        )
+        self.assertEqual(
+            resultado['data']['estatus'].tolist(),
+            ['ACTIVO', 'ACTIVO', 'EN REVISION', 'SUSPENDIDO']
+        )
+        self.assertEqual(
+            resultado['data']['precinto'].fillna('').tolist(),
+            ['PREC-05', 'PREC-22', '', 'PREC-99']
+        )
+        self.assertTrue((resultado['data']['resultado_comparativo'] == 'Coincide').all())
+        self.assertEqual(resultado['data'].iloc[0]['barrio'], 'La Floresta')
+        self.assertEqual(resultado['data'].iloc[0]['dirección'], 'Calle 8 # 15-30')
+        self.assertEqual(resultado['data'].iloc[0]['ciudad'], 'Pereira')
+        self.assertNotIn(4105, resultado['data']['n° abonado'].dropna().tolist())
+        self.assertEqual(
+            resultado['data'].loc[resultado['data']['n° abonado'] == 4103, 'observacion_precinto'].tolist(),
+            ['Precinto vacío en SAEPlus']
+        )
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Coinciden'])
+        hoja_coinciden = excel.parse('Coinciden')
+        self.assertEqual(hoja_coinciden['n° abonado'].tolist(), [4102, 4101, 4103, 4104])
+
 
 class NavegacionServiceTests(unittest.TestCase):
     def test_procesar_sin_navegar_detecta_activo_sin_navegacion(self):
@@ -221,6 +425,30 @@ class NavegacionServiceTests(unittest.TestCase):
 
         self.assertEqual(resultado['num_casos'], 2)
         self.assertEqual(resultado['data']['n° abonado'].tolist(), [5001])
+
+    def test_procesar_navegacion_activos_sin_navegar(self):
+        resultado = procesar_navegacion_activos_sin_navegar(*navegacion_archivos())
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [5001])
+
+    def test_procesar_navegacion_desactivos_con_internet(self):
+        resultado = procesar_navegacion_desactivos_con_internet(*navegacion_archivos())
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [5002])
+
+    def test_procesar_navegacion_activos_sin_catv(self):
+        resultado = procesar_navegacion_activos_sin_catv(*navegacion_archivos())
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [5003])
+
+    def test_procesar_navegacion_solo_con_arroba_y_catv_activo(self):
+        resultado = procesar_navegacion_solo_con_arroba_y_catv_activo(*navegacion_archivos())
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [5004])
 
 
 class AuditoriaReconexionesServiceTests(unittest.TestCase):
@@ -293,6 +521,59 @@ class AtenuacionesServiceTests(unittest.TestCase):
         self.assertGreater(resultado['num_casos'], 0)
         self.assertIn('prioridad', resultado['data'].columns)
         self.assertEqual(resultado['data'].iloc[0]['danio_dominante'], 'FIBRA')
+
+
+class CoincidenciaEnFilaServiceTests(unittest.TestCase):
+    def test_procesar_coincidencia_en_fila_devuelve_filas_coincidentes(self):
+        abonados = pd.DataFrame({
+            'ABONADO': ['000123', '789', None],
+            'n° abonado': [123, 456, 999],
+            'documento': ['10', '20', '30'],
+        })
+
+        resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
+
+        self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(int(resultado['data']['ABONADO'].iloc[0]), 123)
+        self.assertEqual(resultado['data']['documento'].tolist(), [10])
+        self.assertIn('hoja origen', resultado['data'].columns)
+
+    def test_procesar_coincidencia_en_fila_retorna_cero_si_no_hay_match(self):
+        abonados = pd.DataFrame({
+            'ABONADO': [111, 222],
+            'n° abonado': [333, 444],
+            'documento': ['10', '20'],
+        })
+
+        resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
+
+        self.assertEqual(resultado['num_casos'], 0)
+        self.assertEqual(resultado['data'].columns.tolist(), ['hoja origen', 'ABONADO', 'n° abonado', 'documento'])
+
+
+class CiudadesAbonadoServiceTests(unittest.TestCase):
+    def test_agregar_columna_ciudad_asigna_ciudad_por_prefijo(self):
+        abonados = pd.DataFrame({
+            'ABONADO': ['CH100', 'C0123', 'DQ888', 'SR111', 'VG222', 'TC999', 'TCF777', 'PQ555', 'SG444', 'ZZ000'],
+        })
+
+        resultado = agregar_columna_ciudad(abonados)
+
+        self.assertEqual(
+            resultado['CIUDAD'].tolist(),
+            [
+                'Chinchiná',
+                'Cartago',
+                'Dosquebradas',
+                'Santa Rosa',
+                'Virginia',
+                'Pereira',
+                'PereiraCentro',
+                'Parque Industrial',
+                'Guaviare',
+                None,
+            ]
+        )
 
 
 if __name__ == '__main__':
