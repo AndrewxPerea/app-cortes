@@ -85,6 +85,17 @@ def crear_resultado_analisis(df, nombre_hoja):
     }
 
 
+def crear_resultado_analisis_pareja(analisis, claves):
+    hojas = [(ANALISIS_NAVEGACION[clave], analisis[clave]) for clave in claves]
+    data = analisis[claves[0]]
+    return {
+        'data': data,
+        'columns': data.columns,
+        'num_casos': sum(analisis[clave].shape[0] for clave in claves),
+        'excel': excel_desde_hojas(hojas),
+    }
+
+
 def procesar_sin_navegar(abonados_file, olt_file):
     df_resultado = preparar_resultado_navegacion(abonados_file, olt_file)
     analisis = construir_analisis_navegacion(df_resultado)
@@ -102,6 +113,24 @@ def procesar_sin_navegar(abonados_file, olt_file):
             ]
         ),
     }
+
+
+def procesar_navegacion_estado_servicio(abonados_file, olt_file):
+    df_resultado = preparar_resultado_navegacion(abonados_file, olt_file)
+    analisis = construir_analisis_navegacion(df_resultado)
+    return crear_resultado_analisis_pareja(
+        analisis,
+        ['activos_sin_navegar', 'desactivos_con_internet']
+    )
+
+
+def procesar_navegacion_catv_y_planes(abonados_file, olt_file):
+    df_resultado = preparar_resultado_navegacion(abonados_file, olt_file)
+    analisis = construir_analisis_navegacion(df_resultado)
+    return crear_resultado_analisis_pareja(
+        analisis,
+        ['activos_sin_catv', 'solo_con_arroba_y_catv_activo']
+    )
 
 
 def procesar_navegacion_activos_sin_navegar(abonados_file, olt_file):

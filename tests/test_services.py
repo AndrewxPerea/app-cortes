@@ -10,12 +10,15 @@ from services.common import excel_desde_dataframe, excel_desde_hojas, validar_co
 from services.atenuaciones import procesar_atenuaciones
 from services.auditoria_reconexiones import procesar_auditoria_reconexiones
 from services.ciudades_abonado import agregar_columna_ciudad
+from services.comparativo_equipos import procesar_comparativo_equipos
 from services.comparativo_precintos import procesar_comparativo_precintos
 from services.coincidencia_en_fila import procesar_coincidencia_en_fila
 from services.coincidencias_saeplus_smartolt import procesar_coincidencias_saeplus_smartolt
 from services.cortes import procesar_cortes
 from services.diferentes import procesar_diferentes
 from services.navegacion import (
+    procesar_navegacion_catv_y_planes,
+    procesar_navegacion_estado_servicio,
     procesar_navegacion_activos_sin_catv,
     procesar_navegacion_activos_sin_navegar,
     procesar_navegacion_desactivos_con_internet,
@@ -366,6 +369,60 @@ class DiferentesServiceTests(unittest.TestCase):
         self.assertEqual(resultado['data']['N° Abonado'].tolist(), [4001])
         self.assertEqual(resultado['data']['NSN'].tolist(), ['12345678'])
 
+    def test_procesar_comparativo_equipos_retorna_dos_hojas(self):
+        saeplus = pd.DataFrame({
+            'EQUIPO MAC': ['AA:BB:CC:11:22:12345678', 'AA:BB:CC:11:22:87654321'],
+            'N° Abonado': [4001, 4002],
+            'nombre': ['Ana', 'Luis'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN99999999'],
+            'olt': ['OLT-1', 'OLT-2'],
+            'status': ['Online', 'Offline'],
+        })
+
+        resultado = procesar_comparativo_equipos(excel_buffer(saeplus), csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 3)
+        self.assertEqual(resultado['data']['N° Abonado'].tolist(), [4001])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Equipos que coinciden', 'Equipos que no coinciden'])
+        self.assertEqual(excel.parse('Equipos que coinciden')['N° Abonado'].tolist(), [4001])
+        hoja_no_coinciden = excel.parse('Equipos que no coinciden')
+        self.assertEqual(hoja_no_coinciden.shape[0], 2)
+        self.assertIn('no coincide en', hoja_no_coinciden.columns)
+        self.assertEqual(
+            sorted(hoja_no_coinciden['no coincide en'].tolist()),
+            ['No coincide en SAEPlus', 'No coincide en SmartOLT']
+        )
+
+    def test_procesar_comparativo_equipos_ordena_n_abonado_mixto_sin_error(self):
+        saeplus = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+            ],
+            'N° Abonado': [4001, 'C016454', 'SR006144'],
+            'nombre': ['Ana', 'Luis', 'Marta'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN87654321', 'SN11111111', 'SN22222222'],
+            'olt': ['OLT-1', 'OLT-2', 'OLT-3', 'OLT-4'],
+            'status': ['Online', 'Offline', 'Online', 'Offline'],
+        })
+
+        resultado = procesar_comparativo_equipos(excel_buffer(saeplus), csv_buffer(olt))
+
+        self.assertEqual(resultado['data']['N° Abonado'].tolist(), [4001, 'C016454', 'SR006144'])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(
+            excel.parse('Equipos que coinciden')['N° Abonado'].tolist(),
+            [4001, 'C016454', 'SR006144']
+        )
+
     def test_procesar_comparativo_precintos_devuelve_solo_candidatos_operativos(self):
         saeplus = pd.DataFrame({
             'EQUIPO MAC': [
@@ -691,6 +748,17 @@ class NavegacionServiceTests(unittest.TestCase):
         self.assertEqual(resultado['num_casos'], 1)
         self.assertEqual(resultado['data']['n° abonado'].tolist(), [5002])
 
+    def test_procesar_navegacion_estado_servicio_retorna_dos_hojas(self):
+        resultado = procesar_navegacion_estado_servicio(*navegacion_archivos())
+
+        self.assertEqual(resultado['num_casos'], 2)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [5001])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Activos sin navegar', 'Desactivos con internet'])
+        self.assertEqual(excel.parse('Activos sin navegar')['n° abonado'].tolist(), [5001])
+        self.assertEqual(excel.parse('Desactivos con internet')['n° abonado'].tolist(), [5002])
+
     def test_procesar_navegacion_activos_sin_catv(self):
         resultado = procesar_navegacion_activos_sin_catv(*navegacion_archivos())
 
@@ -702,6 +770,17 @@ class NavegacionServiceTests(unittest.TestCase):
 
         self.assertEqual(resultado['num_casos'], 1)
         self.assertEqual(resultado['data']['n° abonado'].tolist(), [5004])
+
+    def test_procesar_navegacion_catv_y_planes_retorna_dos_hojas(self):
+        resultado = procesar_navegacion_catv_y_planes(*navegacion_archivos())
+
+        self.assertEqual(resultado['num_casos'], 2)
+        self.assertEqual(resultado['data']['n° abonado'].tolist(), [5003])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Activos sin Catv', 'Solo con @ y catv activo'])
+        self.assertEqual(excel.parse('Activos sin Catv')['n° abonado'].tolist(), [5003])
+        self.assertEqual(excel.parse('Solo con @ y catv activo')['n° abonado'].tolist(), [5004])
 
 
 class AuditoriaReconexionesServiceTests(unittest.TestCase):
@@ -777,7 +856,7 @@ class AtenuacionesServiceTests(unittest.TestCase):
 
 
 class CoincidenciaEnFilaServiceTests(unittest.TestCase):
-    def test_procesar_coincidencia_en_fila_devuelve_filas_coincidentes(self):
+    def test_procesar_coincidencia_en_fila_devuelve_valores_coincidentes_entre_columnas(self):
         abonados = pd.DataFrame({
             'ABONADO': ['000123', '789', None],
             'n° abonado': [123, 456, 999],
@@ -787,8 +866,10 @@ class CoincidenciaEnFilaServiceTests(unittest.TestCase):
         resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
 
         self.assertEqual(resultado['num_casos'], 1)
-        self.assertEqual(int(resultado['data']['ABONADO'].iloc[0]), 123)
-        self.assertEqual(resultado['data']['documento'].tolist(), [10])
+        self.assertEqual(resultado['data']['valor comparado'].tolist(), ['123'])
+        self.assertEqual(resultado['data']['valor en ABONADO'].tolist(), ['000123'])
+        self.assertEqual(resultado['data']['filas ABONADO'].tolist(), ['2'])
+        self.assertEqual(resultado['data']['filas n° abonado'].tolist(), ['2'])
         self.assertIn('hoja origen', resultado['data'].columns)
 
     def test_procesar_coincidencia_en_fila_retorna_cero_si_no_hay_match(self):
@@ -801,7 +882,41 @@ class CoincidenciaEnFilaServiceTests(unittest.TestCase):
         resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
 
         self.assertEqual(resultado['num_casos'], 0)
-        self.assertEqual(resultado['data'].columns.tolist(), ['hoja origen', 'ABONADO', 'n° abonado', 'documento'])
+        self.assertEqual(
+            resultado['data'].columns.tolist(),
+            ['hoja origen', 'valor comparado', 'valor en ABONADO', 'filas ABONADO', 'cantidad en ABONADO', 'valor en n° abonado', 'filas n° abonado', 'cantidad en n° abonado']
+        )
+
+    def test_procesar_coincidencia_en_fila_normaliza_decimales_y_ceros(self):
+        abonados = pd.DataFrame({
+            'ABONADO': ['00123.00', "'000456", 'C016454'],
+            'n° abonado': [123, '456.0', ' c016454 '],
+            'documento': ['10', '20', '30'],
+        })
+
+        resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
+
+        self.assertEqual(resultado['num_casos'], 3)
+        self.assertEqual(resultado['data']['valor comparado'].tolist(), ['123', '456', 'C016454'])
+
+    def test_procesar_coincidencia_en_fila_detecta_match_en_filas_distintas(self):
+        abonados = pd.DataFrame({
+            'ABONADO': ['SR006144', 'X', 'SR002666'],
+            'n° abonado': ['Y', 'SR006144', 'SR002666'],
+        })
+
+        resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
+
+        self.assertEqual(resultado['num_casos'], 2)
+        self.assertEqual(resultado['data']['valor comparado'].tolist(), ['SR002666', 'SR006144'])
+        self.assertEqual(
+            resultado['data'].loc[resultado['data']['valor comparado'] == 'SR006144', 'filas ABONADO'].tolist(),
+            ['2']
+        )
+        self.assertEqual(
+            resultado['data'].loc[resultado['data']['valor comparado'] == 'SR006144', 'filas n° abonado'].tolist(),
+            ['3']
+        )
 
 
 class CiudadesAbonadoServiceTests(unittest.TestCase):

@@ -7,16 +7,13 @@ from flask import Flask, redirect, render_template, request, send_file, session
 
 from services.atenuaciones import procesar_atenuaciones
 from services.auditoria_reconexiones import procesar_auditoria_reconexiones
+from services.comparativo_equipos import procesar_comparativo_equipos
 from services.comparativo_precintos import procesar_comparativo_precintos
 from services.coincidencia_en_fila import procesar_coincidencia_en_fila
-from services.coincidencias_saeplus_smartolt import procesar_coincidencias_saeplus_smartolt
 from services.cortes import procesar_cortes
-from services.diferentes import procesar_diferentes
 from services.navegacion import (
-    procesar_navegacion_activos_sin_catv,
-    procesar_navegacion_activos_sin_navegar,
-    procesar_navegacion_desactivos_con_internet,
-    procesar_navegacion_solo_con_arroba_y_catv_activo,
+    procesar_navegacion_catv_y_planes,
+    procesar_navegacion_estado_servicio,
     procesar_sin_navegar,
 )
 from services.reconexiones import procesar_reconexiones
@@ -292,8 +289,8 @@ def verificar_velocidad():
     )
 
 
-@app.route('/diferentes', methods=['GET', 'POST'])
-def diferentes():
+@app.route('/comparativo_equipos', methods=['GET', 'POST'])
+def comparativo_equipos():
     if request.method == 'POST':
         try:
             archivos = validar_archivos_requeridos(
@@ -303,75 +300,26 @@ def diferentes():
                     ('olt', {'.csv'}, 'de SmartOLT'),
                 ]
             )
-            resultado = procesar_diferentes(
+            resultado = procesar_comparativo_equipos(
                 archivos['saeplus'],
                 archivos['olt']
             )
         except Exception as e:
             return render_template('error.html', error=str(e))
 
-        return guardar_y_renderizar_resultado(resultado, 'Equipos que no coinciden')
+        return guardar_y_renderizar_resultado(resultado, 'Comparativo de equipos')
 
     return renderizar_formulario_analisis(
-        'Equipos que No Coinciden',
-        'Compara los equipos registrados en SAEPlus contra los equipos reportados por SmartOLT para detectar diferencias entre ambas fuentes.',
-        '/diferentes',
-        'Equipos que no coinciden',
+        'Comparativo de Equipos',
+        'Cruza SAEPlus y SmartOLT en una sola ejecución para revisar tanto los equipos que coinciden como los que no coinciden entre ambas fuentes.',
+        '/comparativo_equipos',
+        'Comparativo de equipos',
         [
-            'Equipos presentes en SAEPlus pero ausentes en SmartOLT.',
-            'Equipos presentes en SmartOLT pero ausentes en SAEPlus.',
+            'Primera hoja con los equipos que sí coinciden entre SAEPlus y SmartOLT.',
+            'Segunda hoja con los equipos que no coinciden entre ambas fuentes.',
             'Cruce por los identificadores EQUIPO MACO y NSN.',
         ],
-        'Se genera un Excel con una hoja general de diferencias y hojas separadas para equipos solo en SAEPlus y solo en SmartOLT.',
-        [
-            'Archivo de abonados exportado desde SAEPlus en formato Excel.',
-            'Archivo de abonados exportado desde SmartOLT en formato CSV.',
-        ],
-        [
-            'Exporta el archivo de abonados desde SAEPlus.',
-            'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
-            'Abre el Excel de SAEPlus y guárdalo nuevamente.',
-            'Carga ambos archivos y ejecuta el análisis.',
-            'Revisa el Excel descargado para depurar diferencias entre inventarios.',
-        ],
-        [
-            {'id': 'saeplus', 'name': 'saeplus', 'label': 'Archivo de Abonados (Excel)', 'accept': '.xlsx,.xls'},
-            {'id': 'olt', 'name': 'olt', 'label': 'Archivo de Abonados en SmartOLT (CSV)', 'accept': '.csv'},
-        ],
-    )
-
-
-@app.route('/coincidencias_saeplus_smartolt', methods=['GET', 'POST'])
-def coincidencias_saeplus_smartolt():
-    if request.method == 'POST':
-        try:
-            archivos = validar_archivos_requeridos(
-                request.files,
-                [
-                    ('saeplus', {'.xlsx', '.xls'}, 'SAEPlus'),
-                    ('olt', {'.csv'}, 'de SmartOLT'),
-                ]
-            )
-            resultado = procesar_coincidencias_saeplus_smartolt(
-                archivos['saeplus'],
-                archivos['olt']
-            )
-        except Exception as e:
-            return render_template('error.html', error=str(e))
-
-        return guardar_y_renderizar_resultado(resultado, 'Equipos que coinciden')
-
-    return renderizar_formulario_analisis(
-        'Equipos que Coinciden',
-        'Cruza SAEPlus y SmartOLT para devolver únicamente los registros que sí coinciden entre ambas fuentes.',
-        '/coincidencias_saeplus_smartolt',
-        'Equipos que coinciden',
-        [
-            'Coincidencia exacta entre los campos EQUIPO MACO de SAEPlus y NSN de SmartOLT.',
-            'Conservación de la información de ambas fuentes en una sola tabla.',
-            'Exclusión de registros que existan solo en una de las dos bases.',
-        ],
-        'Se genera un Excel con los equipos y abonados que sí empatan entre SAEPlus y SmartOLT.',
+        'Se genera un Excel con dos hojas: Equipos que coinciden y Equipos que no coinciden.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV.',
@@ -381,13 +329,27 @@ def coincidencias_saeplus_smartolt():
             'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo.',
             'Carga ambos archivos en el formulario.',
-            'Ejecuta el análisis y descarga el Excel con las coincidencias encontradas.',
+            'Ejecuta el análisis y revisa ambas hojas del Excel para validar coincidencias y diferencias.',
         ],
         [
             {'id': 'saeplus', 'name': 'saeplus', 'label': 'Archivo de Abonados (Excel)', 'accept': '.xlsx,.xls'},
             {'id': 'olt', 'name': 'olt', 'label': 'Archivo de Abonados en SmartOLT (CSV)', 'accept': '.csv'},
         ],
     )
+
+
+@app.route('/diferentes', methods=['GET', 'POST'])
+def diferentes():
+    if request.method == 'POST':
+        return comparativo_equipos()
+    return redirect('/comparativo_equipos')
+
+
+@app.route('/coincidencias_saeplus_smartolt', methods=['GET', 'POST'])
+def coincidencias_saeplus_smartolt():
+    if request.method == 'POST':
+        return comparativo_equipos()
+    return redirect('/comparativo_equipos')
 
 
 @app.route('/comparativo_precintos', methods=['GET', 'POST'])
@@ -496,39 +458,37 @@ def sin_navegar():
             {'id': 'olt', 'name': 'olt', 'label': 'Archivo de Abonados en SmartOLT (CSV)', 'accept': '.csv'},
         ],
         enlaces_relacionados=[
-            {'href': '/navegacion_activos_sin_navegar', 'label': 'Activos sin navegar'},
-            {'href': '/navegacion_desactivos_con_internet', 'label': 'Desactivos con internet'},
-            {'href': '/navegacion_activos_sin_catv', 'label': 'Activos sin CATV'},
-            {'href': '/navegacion_solo_con_arroba_y_catv_activo', 'label': 'Solo con @ y CATV activo'},
+            {'href': '/navegacion_estado_servicio', 'label': 'Estado de navegación y servicio'},
+            {'href': '/navegacion_catv_y_planes', 'label': 'Validación CATV y planes'},
         ],
     )
 
 
-@app.route('/navegacion_activos_sin_navegar', methods=['GET', 'POST'])
-def navegacion_activos_sin_navegar():
+@app.route('/navegacion_estado_servicio', methods=['GET', 'POST'])
+def navegacion_estado_servicio():
     if request.method == 'POST':
         try:
-            resultado = ejecutar_procesamiento_navegacion(procesar_navegacion_activos_sin_navegar)
+            resultado = ejecutar_procesamiento_navegacion(procesar_navegacion_estado_servicio)
         except Exception as e:
             return render_template('error.html', error=f"Error en el procesamiento: {e}")
 
         guardar_resultado_excel(
             resultado['excel'],
-            construir_nombre_descarga('Activos sin navegar')
+            construir_nombre_descarga('Estado de navegación y servicio')
         )
         return renderizar_resultado(resultado)
 
     return renderizar_formulario_analisis(
-        'Activos sin navegar',
-        'Identifica abonados en estado ACTIVO que tienen el servicio administrativo deshabilitado o no aparecen online en SmartOLT.',
-        '/navegacion_activos_sin_navegar',
-        'Activos sin navegar',
+        'Estado de navegación y servicio',
+        'Fusiona en un solo Excel los abonados activos que no están navegando correctamente y los abonados desactivos que siguen con internet en SmartOLT.',
+        '/navegacion_estado_servicio',
+        'Estado de navegación y servicio',
         [
-            'Abonados con estado ACTIVO en SAEPlus.',
-            'Casos donde el campo Administrative Status aparece en Disabled.',
-            'Casos donde el abonado no figura como Online en SmartOLT.',
+            'Primera hoja: Activos sin navegar.',
+            'Segunda hoja: Desactivos con internet.',
+            'Cruce entre SAEPlus y SmartOLT con enfoque operativo en estado comercial vs estado técnico.',
         ],
-        'Se genera un Excel con los abonados activos que requieren revisión porque no están navegando correctamente en red.',
+        'Se genera un Excel con dos hojas: Activos sin navegar y Desactivos con internet.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV.',
@@ -538,7 +498,7 @@ def navegacion_activos_sin_navegar():
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo en la herramienta.',
             'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
             'Carga ambos archivos y ejecuta el análisis.',
-            'Revisa la tabla en pantalla y descarga el Excel generado para el seguimiento operativo.',
+            'Revisa las dos hojas del Excel para validar abonados activos sin navegación y desactivos con internet.',
         ],
         [
             {'id': 'abonados', 'name': 'abonados', 'label': 'Archivo de Abonados (Excel)', 'accept': '.xlsx,.xls'},
@@ -549,31 +509,45 @@ def navegacion_activos_sin_navegar():
     )
 
 
+@app.route('/navegacion_activos_sin_navegar', methods=['GET', 'POST'])
+def navegacion_activos_sin_navegar():
+    if request.method == 'POST':
+        return navegacion_estado_servicio()
+    return redirect('/navegacion_estado_servicio')
+
+
 @app.route('/navegacion_desactivos_con_internet', methods=['GET', 'POST'])
 def navegacion_desactivos_con_internet():
     if request.method == 'POST':
+        return navegacion_estado_servicio()
+    return redirect('/navegacion_estado_servicio')
+
+
+@app.route('/navegacion_catv_y_planes', methods=['GET', 'POST'])
+def navegacion_catv_y_planes():
+    if request.method == 'POST':
         try:
-            resultado = ejecutar_procesamiento_navegacion(procesar_navegacion_desactivos_con_internet)
+            resultado = ejecutar_procesamiento_navegacion(procesar_navegacion_catv_y_planes)
         except Exception as e:
             return render_template('error.html', error=f"Error en el procesamiento: {e}")
 
         guardar_resultado_excel(
             resultado['excel'],
-            construir_nombre_descarga('Desactivos con internet')
+            construir_nombre_descarga('Validación CATV y planes')
         )
         return renderizar_resultado(resultado)
 
     return renderizar_formulario_analisis(
-        'Desactivos con internet',
-        'Muestra abonados que no están ACTIVO ni POR INSTALAR en SAEPlus, pero siguen apareciendo online en SmartOLT.',
-        '/navegacion_desactivos_con_internet',
-        'Desactivos con internet',
+        'Validación CATV y planes',
+        'Fusiona en un solo Excel los abonados activos sin CATV y los casos de planes con @ que mantienen CATV activo.',
+        '/navegacion_catv_y_planes',
+        'Validación CATV y planes',
         [
-            'Abonados cuyo estado en SAEPlus es diferente de ACTIVO y POR INSTALAR.',
-            'Casos donde el equipo sigue apareciendo Online en SmartOLT.',
-            'Situaciones que pueden indicar servicio activo en red para un abonado deshabilitado comercialmente.',
+            'Primera hoja: Activos sin CATV.',
+            'Segunda hoja: Solo con @ y CATV activo.',
+            'Cruce entre el plan comercial y la configuración de CATV en SmartOLT.',
         ],
-        'Se descarga un Excel con los abonados que deben validarse por posible inconsistencia entre el estado comercial y el estado técnico.',
+        'Se genera un Excel con dos hojas: Activos sin CATV y Solo con @ y CATV activo.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV.',
@@ -583,7 +557,7 @@ def navegacion_desactivos_con_internet():
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo en la herramienta.',
             'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
             'Carga ambos archivos y ejecuta el análisis.',
-            'Valida el Excel generado para revisar posibles servicios activos en abonados deshabilitados.',
+            'Revisa las dos hojas del Excel para validar casos de CATV faltante o CATV activo en planes con @.',
         ],
         [
             {'id': 'abonados', 'name': 'abonados', 'label': 'Archivo de Abonados (Excel)', 'accept': '.xlsx,.xls'},
@@ -597,91 +571,15 @@ def navegacion_desactivos_con_internet():
 @app.route('/navegacion_activos_sin_catv', methods=['GET', 'POST'])
 def navegacion_activos_sin_catv():
     if request.method == 'POST':
-        try:
-            resultado = ejecutar_procesamiento_navegacion(procesar_navegacion_activos_sin_catv)
-        except Exception as e:
-            return render_template('error.html', error=f"Error en el procesamiento: {e}")
-
-        guardar_resultado_excel(
-            resultado['excel'],
-            construir_nombre_descarga('Activos sin CATV')
-        )
-        return renderizar_resultado(resultado)
-
-    return renderizar_formulario_analisis(
-        'Activos sin CATV',
-        'Lista abonados activos con planes sin arroba (@) que tienen CATV deshabilitado.',
-        '/navegacion_activos_sin_catv',
-        'Activos sin CATV',
-        [
-            'Abonados con estado ACTIVO en SAEPlus.',
-            'Planes que no contienen el símbolo @ en el detalle de suscripción.',
-            'Casos donde CATV figura como Disabled en SmartOLT.',
-        ],
-        'Se genera un Excel con los abonados activos que deberían tener CATV habilitado según su plan, pero en red aparecen sin ese servicio.',
-        [
-            'Archivo de abonados exportado desde SAEPlus en formato Excel.',
-            'Archivo de abonados exportado desde SmartOLT en formato CSV.',
-        ],
-        [
-            'Exporta el archivo de abonados desde SAEPlus para la franquicia que deseas revisar.',
-            'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo en la herramienta.',
-            'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
-            'Carga ambos archivos y ejecuta el análisis.',
-            'Descarga el Excel para validar ajustes de CATV sobre abonados activos.',
-        ],
-        [
-            {'id': 'abonados', 'name': 'abonados', 'label': 'Archivo de Abonados (Excel)', 'accept': '.xlsx,.xls'},
-            {'id': 'olt', 'name': 'olt', 'label': 'Archivo de Abonados en SmartOLT (CSV)', 'accept': '.csv'},
-        ],
-        volver_url='/sin_navegar',
-        volver_texto='Volver a la auditoría general'
-    )
+        return navegacion_catv_y_planes()
+    return redirect('/navegacion_catv_y_planes')
 
 
 @app.route('/navegacion_solo_con_arroba_y_catv_activo', methods=['GET', 'POST'])
 def navegacion_solo_con_arroba_y_catv_activo():
     if request.method == 'POST':
-        try:
-            resultado = ejecutar_procesamiento_navegacion(procesar_navegacion_solo_con_arroba_y_catv_activo)
-        except Exception as e:
-            return render_template('error.html', error=f"Error en el procesamiento: {e}")
-
-        guardar_resultado_excel(
-            resultado['excel'],
-            construir_nombre_descarga('Solo con arroba y CATV activo')
-        )
-        return renderizar_resultado(resultado)
-
-    return renderizar_formulario_analisis(
-        'Solo con @ y CATV activo',
-        'Encuentra abonados con planes que contienen arroba (@) y que conservan CATV activo.',
-        '/navegacion_solo_con_arroba_y_catv_activo',
-        'Solo con arroba y CATV activo',
-        [
-            'Abonados cuyo detalle de suscripción contiene el símbolo @.',
-            'Casos donde CATV aparece como Enabled en SmartOLT.',
-            'Situaciones que pueden requerir revisión de la configuración del servicio contratado.',
-        ],
-        'Se descarga un Excel con los abonados cuyo plan indica una condición especial con @ y que actualmente mantienen CATV activo.',
-        [
-            'Archivo de abonados exportado desde SAEPlus en formato Excel.',
-            'Archivo de abonados exportado desde SmartOLT en formato CSV.',
-        ],
-        [
-            'Exporta el archivo de abonados desde SAEPlus para la franquicia que deseas revisar.',
-            'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo en la herramienta.',
-            'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
-            'Carga ambos archivos y ejecuta el análisis.',
-            'Revisa el resultado para validar casos con planes especiales y CATV habilitado.',
-        ],
-        [
-            {'id': 'abonados', 'name': 'abonados', 'label': 'Archivo de Abonados (Excel)', 'accept': '.xlsx,.xls'},
-            {'id': 'olt', 'name': 'olt', 'label': 'Archivo de Abonados en SmartOLT (CSV)', 'accept': '.csv'},
-        ],
-        volver_url='/sin_navegar',
-        volver_texto='Volver a la auditoría general'
-    )
+        return navegacion_catv_y_planes()
+    return redirect('/navegacion_catv_y_planes')
 
 
 @app.route('/auditoria_reconexiones', methods=['GET', 'POST'])
@@ -803,15 +701,15 @@ def coincidencia_en_fila():
 
     return renderizar_formulario_analisis(
         'Coincidencia en Fila',
-        'Revisa un archivo Excel y devuelve las filas en las que las columnas ABONADO y n° abonado tienen exactamente el mismo valor.',
+        'Revisa un archivo Excel y compara toda la columna ABONADO contra toda la columna n° abonado para encontrar valores compartidos, incluso cuando vienen con diferencias normales de formato como ceros a la izquierda o decimales .0.',
         '/coincidencia_en_fila',
         'Coincidencia en fila',
         [
             'Búsqueda de las columnas ABONADO y n° abonado, incluso con pequeñas variaciones en el encabezado.',
-            'Comparación directa entre ambos campos por fila.',
-            'Conservación de todas las columnas originales de las filas coincidentes.',
+            'Comparación global entre ambas columnas, no solo por la misma fila.',
+            'Retorno del valor coincidente y de las posiciones donde aparece en cada columna.',
         ],
-        'Se genera un Excel con las filas coincidentes y, si el archivo tiene varias hojas, se conservan separadas en la descarga.',
+        'Se genera un Excel con los valores compartidos entre ambas columnas y las filas donde aparecen en cada hoja.',
         [
             'Archivo Excel que contenga las columnas ABONADO y n° abonado.',
         ],
@@ -820,7 +718,7 @@ def coincidencia_en_fila():
             'Verifica que el libro contenga las columnas ABONADO y n° abonado.',
             'Carga el archivo en el formulario.',
             'Ejecuta el análisis.',
-            'Descarga el Excel resultante con las coincidencias encontradas.',
+            'Descarga el Excel resultante para revisar el valor coincidente y las posiciones donde aparece en cada columna.',
         ],
         [
             {'id': 'archivo_excel', 'name': 'archivo_excel', 'label': 'Archivo Excel', 'accept': '.xlsx,.xls'},
