@@ -4,7 +4,7 @@ import unicodedata
 import pandas as pd
 
 from funciones import abrir_excel_seguro
-from services.common import excel_desde_dataframe, excel_desde_hojas
+from services.common import excel_desde_hojas
 
 
 COLUMNAS_ABONADO = {"abonado"}
@@ -15,6 +15,14 @@ COLUMNAS_NUMERO_ABONADO = {
     "n abonado",
     "n.o abonado",
 }
+COLUMNAS_METADATOS = [
+    "hoja origen",
+    "fila n° abonado",
+    "valor comparado",
+    "valor en ABONADO",
+    "filas ABONADO",
+    "cantidad en ABONADO",
+]
 
 
 def normalizar_encabezado(valor):
@@ -121,7 +129,34 @@ def construir_resumen_columna(df, columna, etiqueta):
     )
 
 
-def filtrar_coincidencias(df):
+def ordenar_resultado(df):
+    if df.empty or "fila n° abonado" not in df.columns:
+        return df
+
+    trabajo = df.copy()
+    trabajo["_fila_orden"] = pd.to_numeric(trabajo["fila n° abonado"], errors="coerce")
+    trabajo = trabajo.sort_values(
+        by=["hoja origen", "_fila_orden", "valor comparado"],
+        ascending=[True, True, True],
+        na_position="last"
+    )
+    return trabajo.drop(columns=["_fila_orden"]).reset_index(drop=True)
+
+
+def construir_columnas_resultado(columnas_originales):
+    columnas_base = []
+    for columna in COLUMNAS_METADATOS:
+        if columna not in columnas_base:
+            columnas_base.append(columna)
+
+    for columna in columnas_originales:
+        if columna not in columnas_base:
+            columnas_base.append(columna)
+
+    return columnas_base
+
+
+def construir_resultados_hoja(df, nombre_hoja):
     columna_abonado = buscar_columna(df.columns, COLUMNAS_ABONADO)
     columna_numero_abonado = buscar_columna(df.columns, COLUMNAS_NUMERO_ABONADO)
 
@@ -131,99 +166,83 @@ def filtrar_coincidencias(df):
         )
 
     resumen_abonado = construir_resumen_columna(df, columna_abonado, "ABONADO")
-    resumen_numero_abonado = construir_resumen_columna(df, columna_numero_abonado, "n° abonado")
-    coincidencias = resumen_abonado.merge(
-        resumen_numero_abonado,
-        on="valor comparado",
-        how="inner"
+    trabajo = df.copy()
+    trabajo.insert(0, "hoja origen", nombre_hoja)
+    trabajo.insert(1, "fila n° abonado", range(2, len(df) + 2))
+    trabajo["valor comparado"] = trabajo[columna_numero_abonado].map(normalizar_valor)
+
+    trabajo = trabajo.merge(resumen_abonado, on="valor comparado", how="left")
+    trabajo = trabajo[trabajo["valor comparado"].notna()].copy()
+
+    columnas_resultado = construir_columnas_resultado(df.columns.tolist())
+    trabajo = trabajo[columnas_resultado]
+
+    coincidencias = trabajo[trabajo["valor en ABONADO"].notna()].copy()
+    no_coinciden = trabajo[trabajo["valor en ABONADO"].isna()].copy()
+
+    return (
+        ordenar_resultado(coincidencias),
+        ordenar_resultado(no_coinciden),
+        columnas_resultado,
     )
-
-    if coincidencias.empty:
-        return pd.DataFrame(columns=[
-            "valor comparado",
-            "valor en ABONADO",
-            "filas ABONADO",
-            "cantidad en ABONADO",
-            "valor en n° abonado",
-            "filas n° abonado",
-            "cantidad en n° abonado",
-        ])
-
-    return coincidencias[
-        [
-            "valor comparado",
-            "valor en ABONADO",
-            "filas ABONADO",
-            "cantidad en ABONADO",
-            "valor en n° abonado",
-            "filas n° abonado",
-            "cantidad en n° abonado",
-        ]
-    ].sort_values(by="valor comparado").reset_index(drop=True)
 
 
 def obtener_stream(archivo):
-    stream = getattr(archivo, 'stream', archivo)
-    if hasattr(stream, 'seek'):
+    stream = getattr(archivo, "stream", archivo)
+    if hasattr(stream, "seek"):
         stream.seek(0)
     return stream
 
 
 def procesar_coincidencia_en_fila(archivo_excel):
     excel_data = abrir_excel_seguro(obtener_stream(archivo_excel))
-    hojas_resultado = []
-    vistas_previas = []
-    columnas_vista = None
+    coincidencias_hojas = []
+    no_coincidencias_hojas = []
+    columnas_resultado = None
     encontro_columnas = False
 
     for nombre_hoja in excel_data.sheet_names:
         df = excel_data.parse(sheet_name=nombre_hoja, dtype=str)
 
         try:
-            coincidencias = filtrar_coincidencias(df)
+            coincidencias, no_coinciden, columnas_hoja = construir_resultados_hoja(df, nombre_hoja)
         except ValueError:
             continue
 
         encontro_columnas = True
+        if columnas_resultado is None:
+            columnas_resultado = columnas_hoja
 
-        if columnas_vista is None:
-            columnas_vista = [
-                'hoja origen',
-                'valor comparado',
-                'valor en ABONADO',
-                'filas ABONADO',
-                'cantidad en ABONADO',
-                'valor en n° abonado',
-                'filas n° abonado',
-                'cantidad en n° abonado',
-            ]
-
-        if coincidencias.empty:
-            continue
-
-        hoja_vista = coincidencias.copy()
-        hoja_vista.insert(0, 'hoja origen', nombre_hoja)
-        vistas_previas.append(hoja_vista)
-        hojas_resultado.append((nombre_hoja[:31], coincidencias))
+        if not coincidencias.empty:
+            coincidencias_hojas.append(coincidencias)
+        if not no_coinciden.empty:
+            no_coincidencias_hojas.append(no_coinciden)
 
     if not encontro_columnas:
         raise ValueError(
             "El archivo no contiene las columnas requeridas 'ABONADO' y 'n° abonado' en ninguna hoja."
         )
 
-    if vistas_previas:
-        data = pd.concat(vistas_previas, ignore_index=True, sort=False)
-        excel = excel_desde_hojas(hojas_resultado)
-    else:
-        data = pd.DataFrame(columns=columnas_vista or ['hoja origen'])
-        excel = excel_desde_dataframe(
-            pd.DataFrame(columns=(columnas_vista or ['hoja origen'])[1:]),
-            'Coincidencias'
-        )
+    columnas_resultado = columnas_resultado or construir_columnas_resultado([])
+    coincidencias_df = (
+        pd.concat(coincidencias_hojas, ignore_index=True, sort=False)
+        if coincidencias_hojas
+        else pd.DataFrame(columns=columnas_resultado)
+    )
+    no_coinciden_df = (
+        pd.concat(no_coincidencias_hojas, ignore_index=True, sort=False)
+        if no_coincidencias_hojas
+        else pd.DataFrame(columns=columnas_resultado)
+    )
 
     return {
-        'data': data,
-        'columns': data.columns.tolist(),
-        'num_casos': int(data.shape[0]),
-        'excel': excel,
+        "data": coincidencias_df,
+        "columns": coincidencias_df.columns.tolist(),
+        "num_casos": int(coincidencias_df.shape[0]),
+        "excel": excel_desde_hojas(
+            [
+                ("Coinciden", coincidencias_df),
+                ("No coinciden", no_coinciden_df),
+            ]
+        ),
     }

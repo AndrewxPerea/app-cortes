@@ -381,10 +381,11 @@ def comparativo_precintos():
         [
             'Compara los precintos escritos en la web contra la columna precinto de SAEPlus.',
             'Busca solo abonados ACTIVO o CORTADO con precinto vacío en SAEPlus y con estado Offline, Power fail o LOS en SmartOLT.',
-            'Organiza los casos por prioridad de revisión y por ubicación aproximada para facilitar la validación en campo.',
-            'Si escribes precintos en la web, también compara barrio y dirección para sugerir ubicaciones similares dentro de SAEPlus.',
+            'Agrega una hoja adicional que conserva todos los estados de SmartOLT para revisar también casos Online u otros estados operativos.',
+            'Organiza los casos por prioridad de revisión y por ubicación aproximada para facilitar la validación en campo, incluyendo el status SmartOLT en Ubicaciones sugeridas.',
+            'Si escribes precintos en la web, Posibles precintos perdidos se vuelve más estricto y solo conserva casos relacionados por mismo barrio y dirección aproximada, o por mismo OLT, misma zona operativa y mismo barrio.',
         ],
-        'Se genera un Excel corto y operativo. Si escribes precintos, verás Precintos cargados, una hoja adicional de Ubicaciones sugeridas y luego Posibles precintos perdidos.',
+        'Se genera un Excel corto y operativo. Sin precintos, el análisis es general. Si escribes precintos, verás Precintos cargados, una hoja adicional de Ubicaciones sugeridas, Posibles precintos perdidos y una hoja final con todos los estados de SmartOLT.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV.',
@@ -395,7 +396,7 @@ def comparativo_precintos():
             'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo.',
             'Pega los precintos del técnico solo si quieres validar cuáles ya están registrados.',
-            'Ejecuta el análisis y revisa primero Precintos cargados, luego Ubicaciones sugeridas y después Posibles precintos perdidos.',
+            'Ejecuta el análisis y revisa primero Precintos cargados, luego Ubicaciones sugeridas, después Posibles precintos perdidos y al final la hoja con todos los estados de SmartOLT.',
         ],
         [
             {'id': 'saeplus', 'name': 'saeplus', 'label': 'Archivo de Abonados SAEPlus (Excel)', 'accept': '.xlsx,.xls'},
@@ -701,15 +702,16 @@ def coincidencia_en_fila():
 
     return renderizar_formulario_analisis(
         'Coincidencia en Fila',
-        'Revisa un archivo Excel y compara toda la columna ABONADO contra toda la columna n° abonado para encontrar valores compartidos, incluso cuando vienen con diferencias normales de formato como ceros a la izquierda o decimales .0.',
+        'Revisa un archivo Excel y compara toda la columna ABONADO contra toda la columna n° abonado para separar los registros que sí coinciden y los que no coinciden, conservando las columnas originales del archivo.',
         '/coincidencia_en_fila',
         'Coincidencia en fila',
         [
             'Búsqueda de las columnas ABONADO y n° abonado, incluso con pequeñas variaciones en el encabezado.',
             'Comparación global entre ambas columnas, no solo por la misma fila.',
-            'Retorno del valor coincidente y de las posiciones donde aparece en cada columna.',
+            'Hoja Coinciden basada en n° abonado con las columnas originales del archivo y el detalle de la coincidencia encontrada en ABONADO.',
+            'Hoja No coinciden basada en n° abonado para revisar los registros que no aparecen en la columna ABONADO.',
         ],
-        'Se genera un Excel con los valores compartidos entre ambas columnas y las filas donde aparecen en cada hoja.',
+        'Se genera un Excel con dos hojas: Coinciden y No coinciden.',
         [
             'Archivo Excel que contenga las columnas ABONADO y n° abonado.',
         ],
@@ -718,7 +720,7 @@ def coincidencia_en_fila():
             'Verifica que el libro contenga las columnas ABONADO y n° abonado.',
             'Carga el archivo en el formulario.',
             'Ejecuta el análisis.',
-            'Descarga el Excel resultante para revisar el valor coincidente y las posiciones donde aparece en cada columna.',
+            'Descarga el Excel resultante para revisar primero Coinciden y luego No coinciden, siempre tomando como base la columna n° abonado.',
         ],
         [
             {'id': 'archivo_excel', 'name': 'archivo_excel', 'label': 'Archivo Excel', 'accept': '.xlsx,.xls'},

@@ -25,7 +25,7 @@ from services.navegacion import (
     procesar_navegacion_solo_con_arroba_y_catv_activo,
     procesar_sin_navegar,
 )
-from services.precintos_cercanos import procesar_precintos_cercanos
+from services.precintos_cercanos import procesar_precintos_cercanos, referencia_direccion
 from services.reconexiones import procesar_reconexiones
 from services.upload_validation import validar_archivos_requeridos
 from services.velocidad import (
@@ -172,6 +172,10 @@ class CommonServicesTests(unittest.TestCase):
             )
 
         self.assertIn('.csv', str(ctx.exception))
+
+    def test_referencia_direccion_detecta_cruces_similares(self):
+        self.assertEqual(referencia_direccion('CR 16A #27B-48'), '16 27')
+        self.assertEqual(referencia_direccion('CL 27 # 16A'), '16 27')
 
 
 class ReconexionesServiceTests(unittest.TestCase):
@@ -481,7 +485,7 @@ class DiferentesServiceTests(unittest.TestCase):
         )
         self.assertEqual(resultado['data'].iloc[0]['barrio'], 'Centro')
         self.assertEqual(resultado['data'].iloc[0]['dirección'], 'Cra 1 # 10-20')
-        self.assertEqual(resultado['data'].iloc[0]['referencia dirección'], 'CRA 1 10')
+        self.assertEqual(resultado['data'].iloc[0]['referencia dirección'], '1 10')
         self.assertNotIn('4105', resultado['data']['n° abonado'].dropna().astype(str).tolist())
         self.assertNotIn('4104', resultado['data']['n° abonado'].dropna().astype(str).tolist())
         self.assertIn('4106', resultado['data']['n° abonado'].dropna().astype(str).tolist())
@@ -495,13 +499,15 @@ class DiferentesServiceTests(unittest.TestCase):
         )
 
         excel = pd.ExcelFile(resultado['excel'])
-        self.assertEqual(excel.sheet_names, ['Posibles precintos perdidos'])
+        self.assertEqual(excel.sheet_names, ['Posibles precintos perdidos', 'Todos los estados SmartOLT'])
         hoja_coinciden = excel.parse('Posibles precintos perdidos')
         self.assertEqual(
             hoja_coinciden.columns.tolist(),
             ['prioridad', 'hallazgo', 'n° abonado', 'documento', 'nombre', 'estatus', 'status', 'ciudad', 'barrio', 'referencia dirección', 'dirección', 'precinto', 'equipo maco', 'sn', 'olt']
         )
         self.assertEqual(hoja_coinciden['n° abonado'].astype(str).tolist(), ['4101', '4102', '4106', '4103'])
+        hoja_todos = excel.parse('Todos los estados SmartOLT')
+        self.assertEqual(hoja_todos['n° abonado'].astype(str).tolist(), ['4101', '4102', '4106', '4103'])
 
     def test_procesar_comparativo_precintos_incluye_cercania_y_precintos_cargados(self):
         saeplus_base = pd.DataFrame({
@@ -533,7 +539,7 @@ class DiferentesServiceTests(unittest.TestCase):
         olt = pd.DataFrame({
             'SN': ['SN12345678', 'SN87654321', 'SN11111111', 'SN22222222', 'SN33333333'],
             'name': ['ONT Ana', 'ONT Luis', 'ONT Carla', 'ONT Pedro', 'ONT Marta'],
-            'status': ['Online', 'Offline', 'LOS', 'Power fail', 'Online'],
+            'status': ['Offline', 'Offline', 'LOS', 'Power fail', 'Online'],
             'olt': ['OLT-1', 'OLT-1', 'OLT-2', 'OLT-3', 'OLT-4'],
         })
         precintos_texto = 'PREC-10\nPREC-99'
@@ -551,7 +557,7 @@ class DiferentesServiceTests(unittest.TestCase):
         excel = pd.ExcelFile(resultado['excel'])
         self.assertEqual(
             excel.sheet_names,
-            ['Precintos cargados', 'Ubicaciones sugeridas', 'Posibles precintos perdidos']
+            ['Precintos cargados', 'Ubicaciones sugeridas', 'Posibles precintos perdidos', 'Todos los estados SmartOLT']
         )
 
         hoja_precintos = excel.parse('Precintos cargados', dtype=str).fillna('')
@@ -585,6 +591,7 @@ class DiferentesServiceTests(unittest.TestCase):
                 'documento posible',
                 'nombre posible',
                 'estatus posible',
+                'status smartolt posible',
                 'ciudad posible',
                 'barrio posible',
                 'dirección posible',
@@ -594,12 +601,43 @@ class DiferentesServiceTests(unittest.TestCase):
         self.assertEqual(hoja_ubicaciones['precinto cargado'].tolist(), ['PREC-10'])
         self.assertEqual(hoja_ubicaciones['criterio ubicación'].tolist(), ['Mismo barrio y dirección aproximada'])
         self.assertEqual(hoja_ubicaciones['n° abonado posible'].tolist(), ['7001'])
+        self.assertEqual(hoja_ubicaciones['status smartolt posible'].tolist(), ['Offline'])
         self.assertEqual(hoja_ubicaciones['dirección posible'].tolist(), ['Cra 1 # 10-20'])
 
         hoja_coinciden = excel.parse('Posibles precintos perdidos', dtype=str).fillna('')
-        self.assertEqual(hoja_coinciden['n° abonado'].tolist(), ['7003'])
-        self.assertEqual(hoja_coinciden['prioridad'].tolist(), ['Alta'])
-        self.assertEqual(hoja_coinciden['status'].tolist(), ['LOS'])
+        self.assertEqual(
+            hoja_coinciden.columns.tolist(),
+            [
+                'precinto cargado relacionado',
+                'precinto saeplus relacionado',
+                'n° abonado referencia',
+                'criterio ubicación',
+                'prioridad',
+                'hallazgo',
+                'n° abonado',
+                'documento',
+                'nombre',
+                'estatus',
+                'status',
+                'ciudad',
+                'barrio',
+                'referencia dirección',
+                'dirección',
+                'precinto',
+                'equipo maco',
+                'sn',
+                'olt',
+            ]
+        )
+        self.assertEqual(hoja_coinciden['n° abonado'].tolist(), ['7001'])
+        self.assertEqual(hoja_coinciden['precinto cargado relacionado'].tolist(), ['PREC-10'])
+        self.assertEqual(hoja_coinciden['criterio ubicación'].tolist(), ['Mismo barrio y dirección aproximada'])
+        self.assertEqual(hoja_coinciden['prioridad'].tolist(), ['Baja'])
+        self.assertEqual(hoja_coinciden['status'].tolist(), ['Offline'])
+
+        hoja_todos = excel.parse('Todos los estados SmartOLT', dtype=str).fillna('')
+        self.assertEqual(hoja_todos['n° abonado'].tolist(), ['7001'])
+        self.assertEqual(hoja_todos['status'].tolist(), ['Offline'])
 
     def test_procesar_comparativo_precintos_compara_precintos_numericos_pegados_desde_web(self):
         saeplus = pd.DataFrame({
@@ -642,6 +680,109 @@ class DiferentesServiceTests(unittest.TestCase):
         self.assertEqual(
             hoja_precintos.loc[hoja_precintos['precinto cargado'] == '013557', 'n° abonado'].str.replace('.0', '', regex=False).tolist(),
             ['8002']
+        )
+
+    def test_procesar_comparativo_precintos_filtra_por_olt_zona_y_barrio_cuando_hay_precintos(self):
+        saeplus_base = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+                'AA:BB:CC:11:22:22222222',
+            ],
+            'N° Abonado': [8101, 8102, 8103, 8104],
+            'documento': ['11', '22', '33', '44'],
+            'nombre': ['Ana', 'Luis', 'Carla', 'Pedro'],
+            'estatus': ['ACTIVO', 'ACTIVO', 'ACTIVO', 'ACTIVO'],
+            'precinto': ['', 'PREC-10', '', ''],
+        })
+        saeplus_ubicacion = pd.DataFrame({
+            'N° Abonado': [8101, 8102, 8103, 8104],
+            'Barrio': ['Centro', 'Centro', 'Bosques', 'Centro'],
+            'Dirección': [
+                'Cra 9 # 1-10',
+                'Calle 50 # 20-10',
+                'Cra 1 # 1-10',
+                'Avenida 3 # 40-10',
+            ],
+            'Ciudad': ['Pereira', 'Pereira', 'Pereira', 'Pereira'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN87654321', 'SN11111111', 'SN22222222'],
+            'name': ['ONT Ana', 'ONT Luis', 'ONT Carla', 'ONT Pedro'],
+            'status': ['Offline', 'Online', 'LOS', 'Offline'],
+            'olt': ['OLT-1', 'OLT-1', 'OLT-1', 'OLT-1'],
+            'board': ['1', '1', '1', '2'],
+            'port': ['3', '3', '3', '3'],
+        })
+
+        saeplus_excel = excel_desde_hojas([
+            ('Base', saeplus_base),
+            ('Ubicaciones', saeplus_ubicacion),
+        ])
+        resultado = procesar_comparativo_precintos(
+            saeplus_excel,
+            csv_buffer(olt),
+            'PREC-10'
+        )
+
+        excel = pd.ExcelFile(resultado['excel'])
+        hoja_posibles = excel.parse('Posibles precintos perdidos', dtype=str).fillna('')
+
+        self.assertEqual(hoja_posibles['n° abonado'].tolist(), ['8101'])
+        self.assertEqual(hoja_posibles['criterio ubicación'].tolist(), ['Mismo OLT, zona y barrio'])
+
+    def test_procesar_comparativo_precintos_agrega_hoja_con_todos_los_estados_smartolt(self):
+        saeplus_base = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+            ],
+            'N° Abonado': [8201, 8202, 8203],
+            'documento': ['11', '22', '33'],
+            'nombre': ['Ana', 'Luis', 'Carla'],
+            'estatus': ['ACTIVO', 'ACTIVO', 'CORTADO'],
+            'precinto': ['', 'PREC-10', ''],
+        })
+        saeplus_ubicacion = pd.DataFrame({
+            'N° Abonado': [8201, 8202, 8203],
+            'Barrio': ['Centro', 'Centro', 'Centro'],
+            'Dirección': [
+                'Cra 1 # 10-20',
+                'Cra 1 # 10-25',
+                'Cra 1 # 10-40',
+            ],
+            'Ciudad': ['Pereira', 'Pereira', 'Pereira'],
+        })
+        olt = pd.DataFrame({
+            'SN': ['SN12345678', 'SN87654321', 'SN11111111'],
+            'name': ['ONT Ana', 'ONT Luis', 'ONT Carla'],
+            'status': ['Online', 'Online', 'LOS'],
+            'olt': ['OLT-1', 'OLT-1', 'OLT-1'],
+        })
+
+        saeplus_excel = excel_desde_hojas([
+            ('Base', saeplus_base),
+            ('Ubicaciones', saeplus_ubicacion),
+        ])
+        resultado = procesar_comparativo_precintos(
+            saeplus_excel,
+            csv_buffer(olt),
+            'PREC-10'
+        )
+
+        excel = pd.ExcelFile(resultado['excel'])
+        hoja_posibles = excel.parse('Posibles precintos perdidos', dtype=str).fillna('')
+        hoja_todos = excel.parse('Todos los estados SmartOLT', dtype=str).fillna('')
+
+        self.assertEqual(hoja_posibles['n° abonado'].tolist(), ['8203'])
+        self.assertEqual(hoja_todos['n° abonado'].tolist(), ['8201', '8203'])
+        self.assertEqual(hoja_todos['status'].tolist(), ['Online', 'LOS'])
+        self.assertEqual(hoja_todos['prioridad'].tolist(), ['Alta', 'Alta'])
+        self.assertEqual(
+            hoja_todos['criterio ubicación'].tolist(),
+            ['Mismo barrio y dirección aproximada', 'Mismo barrio y dirección aproximada']
         )
 
     def test_procesar_precintos_cercanos_relaciona_ubicacion_y_alertas(self):
@@ -688,7 +829,7 @@ class DiferentesServiceTests(unittest.TestCase):
         self.assertEqual(resultado['data']['n° abonado'].tolist(), ['7001', '7003'])
         self.assertEqual(resultado['data']['cantidad alertas cercanas'].tolist(), [2, 1])
         self.assertEqual(resultado['data'].iloc[0]['barrio'], 'Centro')
-        self.assertEqual(resultado['data'].iloc[0]['referencia dirección'], 'CRA 1 10')
+        self.assertEqual(resultado['data'].iloc[0]['referencia dirección'], '1 10')
         self.assertIn('7002', resultado['data'].iloc[0]['abonados alerta cercanos'])
         self.assertIn('7004', resultado['data'].iloc[0]['abonados alerta cercanos'])
         self.assertEqual(
@@ -856,7 +997,7 @@ class AtenuacionesServiceTests(unittest.TestCase):
 
 
 class CoincidenciaEnFilaServiceTests(unittest.TestCase):
-    def test_procesar_coincidencia_en_fila_devuelve_valores_coincidentes_entre_columnas(self):
+    def test_procesar_coincidencia_en_fila_devuelve_hojas_de_coinciden_y_no_coinciden(self):
         abonados = pd.DataFrame({
             'ABONADO': ['000123', '789', None],
             'n° abonado': [123, 456, 999],
@@ -867,10 +1008,21 @@ class CoincidenciaEnFilaServiceTests(unittest.TestCase):
 
         self.assertEqual(resultado['num_casos'], 1)
         self.assertEqual(resultado['data']['valor comparado'].tolist(), ['123'])
+        self.assertIn('hoja origen', resultado['data'].columns)
+        self.assertIn('documento', resultado['data'].columns)
         self.assertEqual(resultado['data']['valor en ABONADO'].tolist(), ['000123'])
         self.assertEqual(resultado['data']['filas ABONADO'].tolist(), ['2'])
-        self.assertEqual(resultado['data']['filas n° abonado'].tolist(), ['2'])
-        self.assertIn('hoja origen', resultado['data'].columns)
+        self.assertEqual(resultado['data']['fila n° abonado'].astype(str).tolist(), ['2'])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Coinciden', 'No coinciden'])
+        hoja_coinciden = excel.parse('Coinciden', dtype=str).fillna('')
+        hoja_no_coinciden = excel.parse('No coinciden', dtype=str).fillna('')
+
+        self.assertEqual(hoja_coinciden['valor comparado'].tolist(), ['123'])
+        self.assertEqual(hoja_coinciden['documento'].tolist(), ['10'])
+        self.assertEqual(hoja_no_coinciden['valor comparado'].tolist(), ['456', '999'])
+        self.assertEqual(hoja_no_coinciden['documento'].tolist(), ['20', '30'])
 
     def test_procesar_coincidencia_en_fila_retorna_cero_si_no_hay_match(self):
         abonados = pd.DataFrame({
@@ -884,8 +1036,13 @@ class CoincidenciaEnFilaServiceTests(unittest.TestCase):
         self.assertEqual(resultado['num_casos'], 0)
         self.assertEqual(
             resultado['data'].columns.tolist(),
-            ['hoja origen', 'valor comparado', 'valor en ABONADO', 'filas ABONADO', 'cantidad en ABONADO', 'valor en n° abonado', 'filas n° abonado', 'cantidad en n° abonado']
+            ['hoja origen', 'fila n° abonado', 'valor comparado', 'valor en ABONADO', 'filas ABONADO', 'cantidad en ABONADO', 'ABONADO', 'n° abonado', 'documento']
         )
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Coinciden', 'No coinciden'])
+        hoja_no_coinciden = excel.parse('No coinciden', dtype=str).fillna('')
+        self.assertEqual(hoja_no_coinciden['valor comparado'].tolist(), ['333', '444'])
 
     def test_procesar_coincidencia_en_fila_normaliza_decimales_y_ceros(self):
         abonados = pd.DataFrame({
@@ -908,13 +1065,13 @@ class CoincidenciaEnFilaServiceTests(unittest.TestCase):
         resultado = procesar_coincidencia_en_fila(excel_buffer(abonados))
 
         self.assertEqual(resultado['num_casos'], 2)
-        self.assertEqual(resultado['data']['valor comparado'].tolist(), ['SR002666', 'SR006144'])
+        self.assertEqual(resultado['data']['valor comparado'].tolist(), ['SR006144', 'SR002666'])
         self.assertEqual(
             resultado['data'].loc[resultado['data']['valor comparado'] == 'SR006144', 'filas ABONADO'].tolist(),
             ['2']
         )
         self.assertEqual(
-            resultado['data'].loc[resultado['data']['valor comparado'] == 'SR006144', 'filas n° abonado'].tolist(),
+            resultado['data'].loc[resultado['data']['valor comparado'] == 'SR006144', 'fila n° abonado'].astype(str).tolist(),
             ['3']
         )
 

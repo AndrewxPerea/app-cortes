@@ -9,6 +9,11 @@ from services.common import excel_desde_hojas, validar_columnas
 
 ESTADOS_ALERTA = {'offline', 'power fail', 'los'}
 COLUMNAS_UBICACION = ['barrio', 'direccion', 'ciudad']
+TIPOS_VIA = {
+    'AK', 'AUTOPISTA', 'AV', 'AVENIDA', 'BL', 'BLOQUE', 'C', 'CA', 'CALLE', 'CARRERA',
+    'CASA', 'CL', 'CRA', 'CR', 'CS', 'DG', 'DIAGONAL', 'KR', 'MANZANA', 'MZ', 'PASAJE',
+    'PJ', 'PORTAL', 'TORRE', 'TO', 'TR', 'TRANSV', 'TRANSVERSAL', 'TRV', 'TV'
+}
 COLUMNAS_RESUMEN = [
     'n° abonado',
     'nombre',
@@ -260,6 +265,28 @@ def referencia_direccion(valor):
     texto = normalizar_texto(valor)
     if not texto:
         return ''
+
+    componentes = []
+    for token in texto.split():
+        if token in TIPOS_VIA:
+            continue
+        if not re.search(r'\d', token):
+            continue
+
+        coincidencia = re.match(r'(\d+)', token)
+        if coincidencia is None:
+            continue
+
+        componente = coincidencia.group(1)
+        if componente not in componentes:
+            componentes.append(componente)
+
+    if len(componentes) >= 2:
+        principales = sorted(componentes[:2], key=lambda valor: (int(valor), valor))
+        return ' '.join(principales)
+    if componentes:
+        return componentes[0]
+
     tokens = texto.split()
     return ' '.join(tokens[:3])
 

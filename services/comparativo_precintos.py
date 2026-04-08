@@ -44,6 +44,7 @@ def es_estatus_permitido(valor):
 
 def prioridad_status(valor):
     orden = {
+        'ONLINE': -1,
         'LOS': 0,
         'POWER FAIL': 1,
         'OFFLINE': 2,
@@ -53,6 +54,8 @@ def prioridad_status(valor):
 
 def prioridad_revision(valor):
     estado = normalizar_texto(valor)
+    if estado == 'ONLINE':
+        return 'Alta'
     if estado == 'LOS':
         return 'Alta'
     if estado == 'POWER FAIL':
@@ -98,7 +101,27 @@ def normalizar_precinto(valor):
     return texto
 
 
-def construir_posibles_precintos_perdidos(coincidencias):
+def construir_zona_operativa(df):
+    zona = serie_o_vacia(df, ['zone', 'zona']).fillna('').astype(str).str.strip()
+    board = serie_o_vacia(df, 'board').fillna('').astype(str).str.strip()
+    port = serie_o_vacia(df, 'port').fillna('').astype(str).str.strip()
+
+    zona_board_port = pd.Series([''] * len(df), index=df.index)
+    mascara_board_port = board.ne('') & port.ne('')
+    zona_board_port.loc[mascara_board_port] = (
+        'BOARD ' + board.loc[mascara_board_port] + ' PORT ' + port.loc[mascara_board_port]
+    )
+
+    mascara_solo_board = board.ne('') & port.eq('')
+    zona_board_port.loc[mascara_solo_board] = 'BOARD ' + board.loc[mascara_solo_board]
+
+    mascara_solo_port = port.ne('') & board.eq('')
+    zona_board_port.loc[mascara_solo_port] = 'PORT ' + port.loc[mascara_solo_port]
+
+    return zona.where(zona.ne(''), zona_board_port)
+
+
+def construir_analisis_status_smartolt(coincidencias, solo_alertas=True):
     tabla = pd.DataFrame({
         'status': serie_o_vacia(coincidencias, 'status'),
         'n° abonado': serie_o_vacia(coincidencias, ['n° abonado', 'n abonado']),
@@ -116,9 +139,11 @@ def construir_posibles_precintos_perdidos(coincidencias):
 
     tabla = tabla[
         tabla['precinto'].apply(precinto_vacio) &
-        tabla['status'].apply(es_status_alerta) &
         tabla['estatus'].apply(es_estatus_permitido)
     ].copy()
+
+    if solo_alertas:
+        tabla = tabla[tabla['status'].apply(es_status_alerta)].copy()
 
     if tabla.empty:
         return tabla
@@ -127,11 +152,12 @@ def construir_posibles_precintos_perdidos(coincidencias):
     tabla.insert(1, 'hallazgo', tabla['status'].apply(hallazgo_precinto))
     tabla['referencia dirección'] = tabla['dirección'].apply(referencia_direccion)
     tabla['orden_status'] = tabla['status'].apply(prioridad_status)
+    tabla['status_ordenado'] = valor_ordenado(tabla['status'])
     tabla = tabla.sort_values(
-        by=['orden_status', 'ciudad', 'barrio', 'referencia dirección', 'dirección', 'n° abonado'],
-        ascending=[True, True, True, True, True, True],
+        by=['orden_status', 'status_ordenado', 'ciudad', 'barrio', 'referencia dirección', 'dirección', 'n° abonado'],
+        ascending=[True, True, True, True, True, True, True],
         na_position='last'
-    ).drop(columns=['orden_status'])
+    ).drop(columns=['orden_status', 'status_ordenado'])
     tabla = tabla[
         [
             'prioridad',
@@ -152,6 +178,32 @@ def construir_posibles_precintos_perdidos(coincidencias):
         ]
     ]
     return tabla.reset_index(drop=True)
+
+
+def construir_posibles_precintos_perdidos(coincidencias):
+    return construir_analisis_status_smartolt(coincidencias, solo_alertas=True)
+
+
+def construir_todos_los_estados_smartolt(coincidencias):
+    return construir_analisis_status_smartolt(coincidencias, solo_alertas=False)
+
+
+def unir_textos_unicos(serie):
+    valores = []
+    for valor in serie:
+        if not valor_tiene_contenido(valor):
+            continue
+        texto = str(valor).strip()
+        if texto not in valores:
+            valores.append(texto)
+    return ' | '.join(valores)
+
+
+def primer_texto_contenido(serie):
+    for valor in serie:
+        if valor_tiene_contenido(valor):
+            return str(valor).strip()
+    return ''
 
 
 def cargar_precintos_referencia(texto_precintos):
@@ -244,13 +296,174 @@ def construir_comparacion_precintos_cargados(saeplus, texto_precintos):
             'barrio',
             'dirección',
             'orden carga',
-        ]
+    ]
     ].sort_values(by=['orden carga', 'coincide en saeplus', 'n° abonado'], ascending=[True, False, True])
 
     return comparacion.drop(columns=['orden carga']).reset_index(drop=True)
 
 
-def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos):
+def construir_contexto_tecnico(coincidencias):
+    columnas = ['abonado_key', 'status', 'sn', 'olt', 'zona operativa']
+    if coincidencias is None or coincidencias.empty:
+        return pd.DataFrame(columns=columnas)
+
+    contexto = pd.DataFrame({
+        'n° abonado': serie_o_vacia(coincidencias, ['n abonado', 'n° abonado']),
+        'status': serie_o_vacia(coincidencias, 'status'),
+        'sn': serie_o_vacia(coincidencias, 'sn'),
+        'olt': serie_o_vacia(coincidencias, 'olt'),
+        'zona operativa': construir_zona_operativa(coincidencias),
+    })
+    contexto['abonado_key'] = contexto['n° abonado'].apply(normalizar_precinto)
+    contexto = contexto[contexto['abonado_key'].apply(valor_tiene_contenido)].copy()
+
+    if contexto.empty:
+        return pd.DataFrame(columns=columnas)
+
+    contexto = (
+        contexto.groupby('abonado_key', as_index=False)
+        .agg({
+            'status': primer_texto_contenido,
+            'sn': primer_texto_contenido,
+            'olt': primer_texto_contenido,
+            'zona operativa': primer_texto_contenido,
+        })
+    )
+    return contexto[columnas]
+
+
+def construir_referencias_precintos(comparacion_precintos, coincidencias=None):
+    if comparacion_precintos is None:
+        return pd.DataFrame()
+
+    referencias = comparacion_precintos[
+        comparacion_precintos['coincide en saeplus'].astype(str).str.strip().str.upper() == 'SI'
+    ].copy()
+    if referencias.empty:
+        return referencias
+
+    contexto_tecnico = construir_contexto_tecnico(coincidencias)
+    referencias['abonado_key'] = referencias['n° abonado'].apply(normalizar_precinto)
+    if not contexto_tecnico.empty:
+        referencias = referencias.merge(contexto_tecnico, on='abonado_key', how='left')
+
+    referencias['referencia dirección'] = referencias['dirección'].apply(referencia_direccion)
+    referencias['ciudad_norm'] = referencias['ciudad'].apply(normalizar_texto)
+    referencias['barrio_norm'] = referencias['barrio'].apply(normalizar_texto)
+    referencias['direccion_ref_norm'] = referencias['referencia dirección'].apply(normalizar_texto)
+    referencias['olt_norm'] = serie_o_vacia(referencias, 'olt').apply(normalizar_texto)
+    referencias['zona_norm'] = serie_o_vacia(referencias, 'zona operativa').apply(normalizar_texto)
+    return referencias
+
+
+def detectar_criterio_ubicacion(fila, referencia):
+    misma_ciudad = fila['ciudad_norm'] == referencia['ciudad_norm'] and bool(referencia['ciudad_norm'])
+    mismo_barrio = fila['barrio_norm'] == referencia['barrio_norm'] and bool(referencia['barrio_norm'])
+    misma_direccion = fila['direccion_ref_norm'] == referencia['direccion_ref_norm'] and bool(referencia['direccion_ref_norm'])
+    mismo_olt = fila.get('olt_norm', '') == referencia.get('olt_norm', '') and bool(referencia.get('olt_norm', ''))
+    misma_zona = fila.get('zona_norm', '') == referencia.get('zona_norm', '') and bool(referencia.get('zona_norm', ''))
+    ciudades_compatibles = misma_ciudad or not fila['ciudad_norm'] or not referencia['ciudad_norm']
+
+    if misma_ciudad and mismo_barrio and misma_direccion:
+        return 'Mismo barrio y dirección aproximada'
+    if ciudades_compatibles and mismo_barrio and mismo_olt and misma_zona:
+        return 'Mismo OLT, zona y barrio'
+    return None
+
+
+def filtrar_posibles_perdidos_por_precintos(posibles_perdidos, comparacion_precintos, coincidencias=None):
+    columnas_contexto = [
+        'precinto cargado relacionado',
+        'precinto saeplus relacionado',
+        'n° abonado referencia',
+        'criterio ubicación',
+    ]
+    if comparacion_precintos is None:
+        return posibles_perdidos
+
+    referencias = construir_referencias_precintos(comparacion_precintos, coincidencias)
+    if referencias.empty:
+        return pd.DataFrame(columns=[*columnas_contexto, *posibles_perdidos.columns.tolist()])
+
+    posibles = posibles_perdidos.copy()
+    if posibles.empty:
+        return pd.DataFrame(columns=[*columnas_contexto, *posibles.columns.tolist()])
+
+    contexto_tecnico = construir_contexto_tecnico(coincidencias)
+    posibles['abonado_key'] = posibles['n° abonado'].apply(normalizar_precinto)
+    if not contexto_tecnico.empty:
+        posibles = posibles.merge(
+            contexto_tecnico[['abonado_key', 'zona operativa']],
+            on='abonado_key',
+            how='left'
+        )
+
+    posibles['ciudad_norm'] = posibles['ciudad'].apply(normalizar_texto)
+    posibles['barrio_norm'] = posibles['barrio'].apply(normalizar_texto)
+    posibles['direccion_ref_norm'] = posibles['referencia dirección'].apply(normalizar_texto)
+    posibles['olt_norm'] = posibles['olt'].apply(normalizar_texto)
+    posibles['zona_norm'] = serie_o_vacia(posibles, 'zona operativa').apply(normalizar_texto)
+
+    relaciones = []
+    for indice_posible, posible in posibles.iterrows():
+        for _, referencia in referencias.iterrows():
+            criterio = detectar_criterio_ubicacion(posible, referencia)
+            if not criterio:
+                continue
+            relaciones.append({
+                'indice_posible': indice_posible,
+                'precinto cargado relacionado': referencia['precinto cargado'],
+                'precinto saeplus relacionado': referencia['precinto saeplus'],
+                'n° abonado referencia': referencia['n° abonado'],
+                'criterio ubicación': criterio,
+            })
+
+    if not relaciones:
+        return pd.DataFrame(columns=[*columnas_contexto, *posibles_perdidos.columns.tolist()])
+
+    contexto = pd.DataFrame(relaciones)
+    prioridad_criterio = {
+        'Mismo barrio y dirección aproximada': 0,
+        'Mismo OLT, zona y barrio': 1,
+    }
+    contexto['orden criterio'] = contexto['criterio ubicación'].map(prioridad_criterio).fillna(99)
+    contexto = contexto.sort_values(
+        by=['indice_posible', 'orden criterio', 'precinto cargado relacionado', 'n° abonado referencia']
+    )
+    contexto_agrupado = (
+        contexto.groupby('indice_posible', as_index=False)
+        .agg({
+            'precinto cargado relacionado': unir_textos_unicos,
+            'precinto saeplus relacionado': unir_textos_unicos,
+            'n° abonado referencia': unir_textos_unicos,
+            'criterio ubicación': unir_textos_unicos,
+        })
+        .set_index('indice_posible')
+    )
+
+    posibles = posibles.join(contexto_agrupado, how='inner')
+    columnas_auxiliares = [
+        'abonado_key',
+        'zona operativa',
+        'ciudad_norm',
+        'barrio_norm',
+        'direccion_ref_norm',
+        'olt_norm',
+        'zona_norm',
+    ]
+    posibles = posibles.drop(columns=[columna for columna in columnas_auxiliares if columna in posibles.columns])
+    return posibles[
+        [
+            'precinto cargado relacionado',
+            'precinto saeplus relacionado',
+            'n° abonado referencia',
+            'criterio ubicación',
+            *posibles_perdidos.columns.tolist(),
+        ]
+    ].reset_index(drop=True)
+
+
+def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos, coincidencias=None):
     columnas = [
         'precinto cargado',
         'precinto saeplus',
@@ -264,6 +477,7 @@ def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos):
         'documento posible',
         'nombre posible',
         'estatus posible',
+        'status smartolt posible',
         'ciudad posible',
         'barrio posible',
         'dirección posible',
@@ -272,16 +486,9 @@ def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos):
     if comparacion_precintos is None:
         return None
 
-    referencias = comparacion_precintos[
-        comparacion_precintos['coincide en saeplus'].astype(str).str.strip().str.upper() == 'SI'
-    ].copy()
+    referencias = construir_referencias_precintos(comparacion_precintos, coincidencias)
     if referencias.empty:
         return pd.DataFrame(columns=columnas)
-
-    referencias['referencia dirección'] = referencias['dirección'].apply(referencia_direccion)
-    referencias['ciudad_norm'] = referencias['ciudad'].apply(normalizar_texto)
-    referencias['barrio_norm'] = referencias['barrio'].apply(normalizar_texto)
-    referencias['direccion_ref_norm'] = referencias['referencia dirección'].apply(normalizar_texto)
 
     candidatos = saeplus.copy()
     candidatos['n° abonado'] = candidatos['n abonado']
@@ -290,6 +497,18 @@ def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos):
     candidatos['ciudad_norm'] = candidatos['ciudad'].apply(normalizar_texto)
     candidatos['barrio_norm'] = candidatos['barrio'].apply(normalizar_texto)
     candidatos['direccion_ref_norm'] = candidatos['referencia dirección'].apply(normalizar_texto)
+    candidatos['abonado_key'] = candidatos['n° abonado'].apply(normalizar_precinto)
+
+    contexto_tecnico = construir_contexto_tecnico(coincidencias)
+    if not contexto_tecnico.empty:
+        candidatos = candidatos.merge(
+            contexto_tecnico[['abonado_key', 'status']],
+            on='abonado_key',
+            how='left'
+        )
+    else:
+        candidatos['status'] = pd.NA
+
     candidatos = candidatos[
         candidatos['precinto'].apply(precinto_vacio) &
         candidatos['estatus'].apply(es_estatus_permitido)
@@ -298,47 +517,43 @@ def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos):
     if candidatos.empty:
         return pd.DataFrame(columns=columnas)
 
-    criterios = [
-        ('Mismo barrio y dirección aproximada', lambda fila, ref: fila['ciudad_norm'] == ref['ciudad_norm'] and fila['barrio_norm'] == ref['barrio_norm'] and fila['direccion_ref_norm'] == ref['direccion_ref_norm'] and bool(ref['barrio_norm']) and bool(ref['direccion_ref_norm'])),
-        ('Misma dirección aproximada', lambda fila, ref: fila['ciudad_norm'] == ref['ciudad_norm'] and fila['direccion_ref_norm'] == ref['direccion_ref_norm'] and bool(ref['direccion_ref_norm'])),
-        ('Mismo barrio', lambda fila, ref: fila['ciudad_norm'] == ref['ciudad_norm'] and fila['barrio_norm'] == ref['barrio_norm'] and bool(ref['barrio_norm'])),
-    ]
-
     registros = []
     vistos = set()
     for _, referencia in referencias.iterrows():
         candidatos_ref = candidatos[candidatos['n° abonado'] != referencia['n° abonado']]
-        for criterio, comparador in criterios:
-            for _, candidato in candidatos_ref.iterrows():
-                llave = (
-                    str(referencia['precinto cargado']),
-                    str(referencia['n° abonado']),
-                    str(candidato['n° abonado']),
-                )
-                if llave in vistos:
-                    continue
-                if not comparador(candidato, referencia):
-                    continue
+        for _, candidato in candidatos_ref.iterrows():
+            llave = (
+                str(referencia['precinto cargado']),
+                str(referencia['n° abonado']),
+                str(candidato['n° abonado']),
+            )
+            if llave in vistos:
+                continue
 
-                vistos.add(llave)
-                registros.append({
-                    'precinto cargado': referencia['precinto cargado'],
-                    'precinto saeplus': referencia['precinto saeplus'],
-                    'n° abonado referencia': referencia['n° abonado'],
-                    'nombre referencia': referencia['nombre'],
-                    'ciudad referencia': referencia['ciudad'],
-                    'barrio referencia': referencia['barrio'],
-                    'dirección referencia': referencia['dirección'],
-                    'criterio ubicación': criterio,
-                    'n° abonado posible': candidato['n° abonado'],
-                    'documento posible': candidato['documento'],
-                    'nombre posible': candidato['nombre'],
-                    'estatus posible': candidato['estatus'],
-                    'ciudad posible': candidato['ciudad'],
-                    'barrio posible': candidato['barrio'],
-                    'dirección posible': candidato['dirección'],
-                    'precinto posible saeplus': candidato['precinto'],
-                })
+            criterio = detectar_criterio_ubicacion(candidato, referencia)
+            if not criterio:
+                continue
+
+            vistos.add(llave)
+            registros.append({
+                'precinto cargado': referencia['precinto cargado'],
+                'precinto saeplus': referencia['precinto saeplus'],
+                'n° abonado referencia': referencia['n° abonado'],
+                'nombre referencia': referencia['nombre'],
+                'ciudad referencia': referencia['ciudad'],
+                'barrio referencia': referencia['barrio'],
+                'dirección referencia': referencia['dirección'],
+                'criterio ubicación': criterio,
+                'n° abonado posible': candidato['n° abonado'],
+                'documento posible': candidato['documento'],
+                'nombre posible': candidato['nombre'],
+                'estatus posible': candidato['estatus'],
+                'status smartolt posible': candidato['status'],
+                'ciudad posible': candidato['ciudad'],
+                'barrio posible': candidato['barrio'],
+                'dirección posible': candidato['dirección'],
+                'precinto posible saeplus': candidato['precinto'],
+            })
 
     if not registros:
         return pd.DataFrame(columns=columnas)
@@ -346,8 +561,7 @@ def construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos):
     ubicaciones = pd.DataFrame(registros)
     orden_criterio = {
         'Mismo barrio y dirección aproximada': 0,
-        'Misma dirección aproximada': 1,
-        'Mismo barrio': 2,
+        'Mismo OLT, zona y barrio': 1,
     }
     ubicaciones['orden criterio'] = ubicaciones['criterio ubicación'].map(orden_criterio).fillna(99)
     ubicaciones = ubicaciones.sort_values(
@@ -402,7 +616,12 @@ def escribir_hoja(writer, sheet_name, df):
             worksheet.set_row(fila_excel, None, formato)
 
 
-def generar_excel_comparativo(posibles_perdidos, comparacion_precintos=None, ubicaciones_precintos=None):
+def generar_excel_comparativo(
+    posibles_perdidos,
+    comparacion_precintos=None,
+    ubicaciones_precintos=None,
+    todos_los_estados=None
+):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         if comparacion_precintos is not None:
@@ -410,6 +629,8 @@ def generar_excel_comparativo(posibles_perdidos, comparacion_precintos=None, ubi
         if ubicaciones_precintos is not None:
             escribir_hoja(writer, 'Ubicaciones sugeridas', ubicaciones_precintos)
         escribir_hoja(writer, 'Posibles precintos perdidos', posibles_perdidos)
+        if todos_los_estados is not None:
+            escribir_hoja(writer, 'Todos los estados SmartOLT', todos_los_estados)
     output.seek(0)
     return output
 
@@ -430,17 +651,37 @@ def procesar_comparativo_precintos(saeplus_file, olt_file, texto_precintos=''):
         'SmartOLT'
     )
 
+    columnas_olt = ['nsn', 'name', 'status', 'sn', 'olt']
+    for columna_extra in ['zone', 'zona', 'board', 'port']:
+        if columna_extra in olt.columns and columna_extra not in columnas_olt:
+            columnas_olt.append(columna_extra)
+
     coincidencias_raw = pd.merge(
         saeplus,
-        olt[['nsn', 'name', 'status', 'sn', 'olt']],
+        olt[columnas_olt],
         how='inner',
         left_on='equipo maco',
         right_on='nsn'
     )
 
-    posibles_perdidos = construir_posibles_precintos_perdidos(coincidencias_raw)
     comparacion_precintos = construir_comparacion_precintos_cargados(saeplus, texto_precintos)
-    ubicaciones_precintos = construir_ubicaciones_sugeridas_precintos(saeplus, comparacion_precintos)
+    posibles_perdidos = construir_posibles_precintos_perdidos(coincidencias_raw)
+    todos_los_estados = construir_todos_los_estados_smartolt(coincidencias_raw)
+    posibles_perdidos = filtrar_posibles_perdidos_por_precintos(
+        posibles_perdidos,
+        comparacion_precintos,
+        coincidencias_raw
+    )
+    todos_los_estados = filtrar_posibles_perdidos_por_precintos(
+        todos_los_estados,
+        comparacion_precintos,
+        coincidencias_raw
+    )
+    ubicaciones_precintos = construir_ubicaciones_sugeridas_precintos(
+        saeplus,
+        comparacion_precintos,
+        coincidencias_raw
+    )
 
     if comparacion_precintos is not None:
         data = comparacion_precintos
@@ -458,6 +699,7 @@ def procesar_comparativo_precintos(saeplus_file, olt_file, texto_precintos=''):
         'excel': generar_excel_comparativo(
             posibles_perdidos,
             comparacion_precintos,
-            ubicaciones_precintos
+            ubicaciones_precintos,
+            todos_los_estados
         ),
     }
