@@ -25,7 +25,11 @@ from services.navegacion import (
     procesar_navegacion_solo_con_arroba_y_catv_activo,
     procesar_sin_navegar,
 )
-from services.precintos_cercanos import procesar_precintos_cercanos, referencia_direccion
+from services.precintos_cercanos import (
+    cargar_saeplus_con_ubicacion,
+    procesar_precintos_cercanos,
+    referencia_direccion,
+)
 from services.reconexiones import procesar_reconexiones
 from services.upload_validation import validar_archivos_requeridos
 from services.velocidad import (
@@ -176,6 +180,33 @@ class CommonServicesTests(unittest.TestCase):
     def test_referencia_direccion_detecta_cruces_similares(self):
         self.assertEqual(referencia_direccion('CR 16A #27B-48'), '16 27')
         self.assertEqual(referencia_direccion('CL 27 # 16A'), '16 27')
+
+    def test_cargar_saeplus_con_ubicacion_consolida_duplicados_con_primer_valor_util(self):
+        saeplus_base = pd.DataFrame({
+            'EQUIPO MAC': ['AA:BB:CC:11:22:12345678'],
+            'N° Abonado': [9001],
+            'documento': ['10'],
+            'nombre': ['Ana'],
+            'estatus': ['ACTIVO'],
+            'precinto': [''],
+        })
+        saeplus_ubicacion = pd.DataFrame({
+            'N° Abonado': [9001, 9001],
+            'Barrio': ['', 'Centro'],
+            'Dirección': ['', 'Cra 1 # 10-20'],
+            'Ciudad': ['', 'Pereira'],
+        })
+
+        saeplus_excel = excel_desde_hojas([
+            ('Base', saeplus_base),
+            ('Ubicaciones', saeplus_ubicacion),
+        ])
+
+        resultado = cargar_saeplus_con_ubicacion(saeplus_excel, requerir_ubicacion=True)
+
+        self.assertEqual(resultado['barrio'].tolist(), ['Centro'])
+        self.assertEqual(resultado['direccion'].tolist(), ['Cra 1 # 10-20'])
+        self.assertEqual(resultado['ciudad'].tolist(), ['Pereira'])
 
 
 class ReconexionesServiceTests(unittest.TestCase):

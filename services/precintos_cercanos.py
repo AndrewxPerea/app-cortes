@@ -111,11 +111,16 @@ def valor_tiene_contenido(valor):
     return str(valor).strip() != ''
 
 
-def primer_valor_contenido(serie):
-    for valor in serie:
-        if valor_tiene_contenido(valor):
-            return valor
-    return pd.NA
+def serie_tiene_contenido(serie):
+    if pd.api.types.is_object_dtype(serie) or pd.api.types.is_string_dtype(serie):
+        return serie.notna() & serie.astype(str).str.strip().ne('')
+    return serie.notna()
+
+
+def limpiar_vacios_serie(serie):
+    if pd.api.types.is_object_dtype(serie) or pd.api.types.is_string_dtype(serie):
+        return serie.where(serie_tiene_contenido(serie), pd.NA)
+    return serie
 
 
 def consolidar_por_llave(df, llave, columnas):
@@ -123,13 +128,19 @@ def consolidar_por_llave(df, llave, columnas):
         return pd.DataFrame(columns=columnas)
 
     trabajo = df[columnas].copy()
-    trabajo = trabajo[trabajo[llave].apply(valor_tiene_contenido)].copy()
+    trabajo = trabajo[serie_tiene_contenido(trabajo[llave])].copy()
     if trabajo.empty:
         return pd.DataFrame(columns=columnas)
 
+    for columna in columnas:
+        if columna == llave:
+            continue
+        trabajo[columna] = limpiar_vacios_serie(trabajo[columna])
+
     return (
-        trabajo.groupby(llave, as_index=False, dropna=False)
-        .agg({columna: primer_valor_contenido for columna in columnas})
+        trabajo.groupby(llave, as_index=False, dropna=False, sort=False)
+        .first()
+        .reindex(columns=columnas)
     )
 
 
@@ -229,11 +240,11 @@ def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False):
             if columna_ubicacion not in base.columns:
                 continue
 
-            mascara_vacia = ~base[columna].apply(valor_tiene_contenido)
+            mascara_vacia = ~serie_tiene_contenido(base[columna])
             base.loc[mascara_vacia, columna] = base.loc[mascara_vacia, columna_ubicacion]
             base = base.drop(columns=[columna_ubicacion])
 
-    if not any(base[columna].apply(valor_tiene_contenido).any() for columna in COLUMNAS_UBICACION):
+    if not any(serie_tiene_contenido(base[columna]).any() for columna in COLUMNAS_UBICACION):
         if not requerir_ubicacion:
             return base
         raise ValueError(

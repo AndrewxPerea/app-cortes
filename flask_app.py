@@ -2,7 +2,6 @@ import os
 import tempfile
 import unicodedata
 from datetime import datetime
-from io import BytesIO
 
 from flask import Flask, redirect, render_template, request, send_file, session
 
@@ -60,16 +59,6 @@ def guardar_resultado_excel(output, nombre_descarga=None):
         session['resultado_excel_name'] = nombre_descarga or construir_nombre_descarga('resultado')
 
 
-def descargar_excel_directo(output, nombre_descarga):
-    output.seek(0)
-    return send_file(
-        BytesIO(output.getvalue()),
-        as_attachment=True,
-        download_name=nombre_descarga,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-
-
 def renderizar_resultado(resultado, columns=None):
     data = resultado['data']
     return render_template(
@@ -118,7 +107,6 @@ def renderizar_formulario_analisis(
     volver_texto='Volver al inicio',
     enlaces_relacionados=None,
     vista_compacta=False,
-    descarga_directa=False,
 ):
     return render_template(
         'navegacion_individual.html',
@@ -136,7 +124,6 @@ def renderizar_formulario_analisis(
         volver_texto=volver_texto,
         enlaces_relacionados=enlaces_relacionados or [],
         vista_compacta=vista_compacta,
-        descarga_directa=descarga_directa,
     )
 
 
@@ -394,10 +381,7 @@ def comparativo_precintos():
         except Exception as e:
             return render_template('error.html', error=str(e))
 
-        return descargar_excel_directo(
-            resultado['excel'],
-            construir_nombre_descarga('Comparativo de precintos')
-        )
+        return guardar_y_renderizar_resultado(resultado, 'Comparativo de precintos')
 
     return renderizar_formulario_analisis(
         'Comparativo de Precintos',
@@ -412,7 +396,7 @@ def comparativo_precintos():
             'Si escribes precintos en la web, Posibles precintos perdidos se vuelve más estricto y solo conserva casos relacionados por mismo barrio y dirección aproximada, o por mismo OLT, misma zona operativa y mismo barrio.',
             'Si no cargas SmartOLT pero sí escribes precintos, igual valida los precintos contra SAEPlus y genera el cruce básico de precintos y ubicaciones.',
         ],
-        'La descarga inicia al terminar el proceso. Con SmartOLT, el Excel incluye el análisis completo; sin SmartOLT pero con precintos escritos, devuelve la validación de precintos y la cercanía en SAEPlus.',
+        'Se genera un Excel listo para descargar desde la página de resultado. Con SmartOLT, el archivo incluye el análisis completo; sin SmartOLT pero con precintos escritos, devuelve la validación de precintos y la cercanía en SAEPlus.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV. Este archivo es opcional si solo vas a validar precintos contra SAEPlus.',
@@ -423,7 +407,7 @@ def comparativo_precintos():
             'Exporta el archivo de abonados desde SmartOLT en formato CSV solo si también quieres el contexto técnico.',
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo.',
             'Pega los precintos del técnico si quieres validar cuáles ya están registrados, incluso cuando no cargues SmartOLT.',
-            'Ejecuta el análisis y espera la descarga directa del Excel.',
+            'Ejecuta el análisis, revisa la página de resultado y luego descarga el Excel.',
         ],
         [
             {'id': 'saeplus', 'name': 'saeplus', 'label': 'Archivo de Abonados SAEPlus (Excel)', 'accept': '.xlsx,.xls'},
@@ -440,7 +424,6 @@ def comparativo_precintos():
             },
         ],
         vista_compacta=True,
-        descarga_directa=True,
     )
 
 
