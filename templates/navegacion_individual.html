@@ -19,7 +19,13 @@
                         {% endfor %}
                     </div>
                     {% endif %}
-                    <form id="resultForm" action="{{ action_url }}" method="post" enctype="multipart/form-data">
+                    <form
+                        id="resultForm"
+                        action="{{ action_url }}"
+                        method="post"
+                        enctype="multipart/form-data"
+                        {% if descarga_directa %}data-download-direct="true" data-download-name="{{ nombre_descarga }}"{% endif %}
+                    >
                         {% for campo in campos_archivo %}
                         <div class="input-group mb-3">
                             <label class="input-group-text" for="{{ campo.id }}">{{ campo.label }}</label>
@@ -52,6 +58,9 @@
                             {% endif %}
                         </div>
                         {% endfor %}
+                        {% if descarga_directa %}
+                        <div class="form-text mb-3">La descarga del Excel comenzará automáticamente al terminar el proceso.</div>
+                        {% endif %}
                         <input type="submit" class="btn btn-cafe-outline" value="Procesar Archivos">
                     </form>
                 </div>

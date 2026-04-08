@@ -682,6 +682,48 @@ class DiferentesServiceTests(unittest.TestCase):
             ['8002']
         )
 
+    def test_procesar_comparativo_precintos_funciona_sin_smartolt_si_hay_precintos(self):
+        saeplus_base = pd.DataFrame({
+            'EQUIPO MAC': [
+                'AA:BB:CC:11:22:12345678',
+                'AA:BB:CC:11:22:87654321',
+                'AA:BB:CC:11:22:11111111',
+            ],
+            'N° Abonado': [8051, 8052, 8053],
+            'documento': ['10', '20', '30'],
+            'nombre': ['Ana', 'Luis', 'Carla'],
+            'estatus': ['ACTIVO', 'ACTIVO', 'ACTIVO'],
+            'precinto': ['PREC-10', '', ''],
+        })
+        saeplus_ubicacion = pd.DataFrame({
+            'N° Abonado': [8051, 8052, 8053],
+            'Barrio': ['Centro', 'Centro', 'Bosques'],
+            'Dirección': ['Cra 1 # 10-20', 'Cra 1 # 10-25', 'Calle 8 # 15-30'],
+            'Ciudad': ['Pereira', 'Pereira', 'Cartago'],
+        })
+
+        saeplus_excel = excel_desde_hojas([
+            ('Base', saeplus_base),
+            ('Ubicaciones', saeplus_ubicacion),
+        ])
+        resultado = procesar_comparativo_precintos(
+            saeplus_excel,
+            None,
+            'PREC-10\nPREC-99'
+        )
+
+        self.assertEqual(resultado['num_casos'], 2)
+        self.assertEqual(resultado['data']['precinto cargado'].tolist(), ['PREC-10', 'PREC-99'])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(excel.sheet_names, ['Precintos cargados', 'Ubicaciones sugeridas'])
+        hoja_precintos = excel.parse('Precintos cargados', dtype=str).fillna('')
+        hoja_ubicaciones = excel.parse('Ubicaciones sugeridas', dtype=str).fillna('')
+
+        self.assertEqual(hoja_precintos['coincide en saeplus'].tolist(), ['Si', 'No'])
+        self.assertEqual(hoja_ubicaciones['n° abonado posible'].tolist(), ['8052'])
+        self.assertEqual(hoja_ubicaciones['status smartolt posible'].tolist(), [''])
+
     def test_procesar_comparativo_precintos_filtra_por_olt_zona_y_barrio_cuando_hay_precintos(self):
         saeplus_base = pd.DataFrame({
             'EQUIPO MAC': [

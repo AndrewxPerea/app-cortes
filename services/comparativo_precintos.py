@@ -628,7 +628,8 @@ def generar_excel_comparativo(
             escribir_hoja(writer, 'Precintos cargados', comparacion_precintos)
         if ubicaciones_precintos is not None:
             escribir_hoja(writer, 'Ubicaciones sugeridas', ubicaciones_precintos)
-        escribir_hoja(writer, 'Posibles precintos perdidos', posibles_perdidos)
+        if posibles_perdidos is not None:
+            escribir_hoja(writer, 'Posibles precintos perdidos', posibles_perdidos)
         if todos_los_estados is not None:
             escribir_hoja(writer, 'Todos los estados SmartOLT', todos_los_estados)
     output.seek(0)
@@ -637,46 +638,56 @@ def generar_excel_comparativo(
 
 def procesar_comparativo_precintos(saeplus_file, olt_file, texto_precintos=''):
     saeplus = cargar_saeplus_con_ubicacion(saeplus_file, requerir_ubicacion=False)
-    olt = procesar_archivo_csv_solo(olt_file)
-
-    olt.columns = olt.columns.str.lower()
     validar_columnas(
         saeplus,
         ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],
         'SAEPlus'
     )
-    validar_columnas(
-        olt,
-        ['nsn', 'name', 'status', 'sn', 'olt'],
-        'SmartOLT'
-    )
-
-    columnas_olt = ['nsn', 'name', 'status', 'sn', 'olt']
-    for columna_extra in ['zone', 'zona', 'board', 'port']:
-        if columna_extra in olt.columns and columna_extra not in columnas_olt:
-            columnas_olt.append(columna_extra)
-
-    coincidencias_raw = pd.merge(
-        saeplus,
-        olt[columnas_olt],
-        how='inner',
-        left_on='equipo maco',
-        right_on='nsn'
-    )
-
     comparacion_precintos = construir_comparacion_precintos_cargados(saeplus, texto_precintos)
-    posibles_perdidos = construir_posibles_precintos_perdidos(coincidencias_raw)
-    todos_los_estados = construir_todos_los_estados_smartolt(coincidencias_raw)
-    posibles_perdidos = filtrar_posibles_perdidos_por_precintos(
-        posibles_perdidos,
-        comparacion_precintos,
-        coincidencias_raw
-    )
-    todos_los_estados = filtrar_posibles_perdidos_por_precintos(
-        todos_los_estados,
-        comparacion_precintos,
-        coincidencias_raw
-    )
+    if olt_file is None and comparacion_precintos is None:
+        raise ValueError(
+            'Debes cargar el archivo de SmartOLT o escribir al menos un precinto para validar.'
+        )
+
+    coincidencias_raw = pd.DataFrame()
+    posibles_perdidos = None
+    todos_los_estados = None
+
+    if olt_file is not None:
+        olt = procesar_archivo_csv_solo(olt_file)
+        olt.columns = olt.columns.str.lower()
+        validar_columnas(
+            olt,
+            ['nsn', 'name', 'status', 'sn', 'olt'],
+            'SmartOLT'
+        )
+
+        columnas_olt = ['nsn', 'name', 'status', 'sn', 'olt']
+        for columna_extra in ['zone', 'zona', 'board', 'port']:
+            if columna_extra in olt.columns and columna_extra not in columnas_olt:
+                columnas_olt.append(columna_extra)
+
+        coincidencias_raw = pd.merge(
+            saeplus,
+            olt[columnas_olt],
+            how='inner',
+            left_on='equipo maco',
+            right_on='nsn'
+        )
+
+        posibles_perdidos = construir_posibles_precintos_perdidos(coincidencias_raw)
+        todos_los_estados = construir_todos_los_estados_smartolt(coincidencias_raw)
+        posibles_perdidos = filtrar_posibles_perdidos_por_precintos(
+            posibles_perdidos,
+            comparacion_precintos,
+            coincidencias_raw
+        )
+        todos_los_estados = filtrar_posibles_perdidos_por_precintos(
+            todos_los_estados,
+            comparacion_precintos,
+            coincidencias_raw
+        )
+
     ubicaciones_precintos = construir_ubicaciones_sugeridas_precintos(
         saeplus,
         comparacion_precintos,
@@ -688,9 +699,9 @@ def procesar_comparativo_precintos(saeplus_file, olt_file, texto_precintos=''):
         columns = comparacion_precintos.columns.tolist()
         num_casos = int(comparacion_precintos.shape[0])
     else:
-        data = posibles_perdidos
-        columns = posibles_perdidos.columns.tolist()
-        num_casos = int(posibles_perdidos.shape[0])
+        data = posibles_perdidos if posibles_perdidos is not None else pd.DataFrame()
+        columns = data.columns.tolist()
+        num_casos = int(data.shape[0])
 
     return {
         'data': data,
