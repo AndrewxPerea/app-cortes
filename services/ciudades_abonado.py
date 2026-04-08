@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from funciones import abrir_excel_seguro
 from services.common import excel_desde_hojas
 
 
@@ -43,7 +44,7 @@ def agregar_columna_ciudad(df):
 
 
 def procesar_ciudades_abonado(archivo_excel):
-    excel = pd.ExcelFile(archivo_excel)
+    excel = abrir_excel_seguro(archivo_excel)
     hojas_procesadas = []
     vistas_previas = []
 

@@ -1,12 +1,12 @@
 import pandas as pd
 
-from funciones import normalizar_columnas
+from funciones import leer_excel_seguro, normalizar_columnas
 from services.common import excel_desde_dataframe, validar_columnas
 
 
 def procesar_reconexiones(abonados_file, cortes_file):
-    df_cortes = pd.read_excel(cortes_file)
-    df_abonados = pd.read_excel(abonados_file)
+    df_cortes = leer_excel_seguro(cortes_file)
+    df_abonados = leer_excel_seguro(abonados_file)
 
     df_cortes = normalizar_columnas(df_cortes, 'Abonados')
     df_abonados = normalizar_columnas(df_abonados, 'Abonados')

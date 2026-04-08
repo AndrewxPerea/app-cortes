@@ -109,6 +109,7 @@ def renderizar_formulario_analisis(
     volver_url='/',
     volver_texto='Volver al inicio',
     enlaces_relacionados=None,
+    vista_compacta=False,
 ):
     return render_template(
         'navegacion_individual.html',
@@ -125,6 +126,7 @@ def renderizar_formulario_analisis(
         volver_url=volver_url,
         volver_texto=volver_texto,
         enlaces_relacionados=enlaces_relacionados or [],
+        vista_compacta=vista_compacta,
     )
 
 
@@ -411,20 +413,16 @@ def comparativo_precintos():
 
     return renderizar_formulario_analisis(
         'Comparativo de Precintos',
-        'Centraliza la revisión de precintos en un solo análisis: compara SAEPlus y SmartOLT, sugiere zonas cercanas para buscar precintos no registrados y permite contrastar un archivo adicional de números de precinto contra SAEPlus.',
+        'Ayuda a decidir si un corte puede corresponder a un precinto no actualizado en SAEPlus. Primero valida los precintos enviados por los técnicos y luego lista solo los abonados ACTIVO o CORTADO sin precinto que además aparecen con alerta técnica en SmartOLT.',
         '/comparativo_precintos',
         'Comparativo de precintos',
         [
-            'Cruce entre SAEPlus y SmartOLT por los campos EQUIPO MACO y NSN.',
-            'Se conservan únicamente los abonados que coinciden entre SAEPlus y SmartOLT.',
-            'Visualización del estatus comercial de SAEPlus y del status técnico de SmartOLT en el mismo comparativo.',
-            'Resaltado de los abonados de SAEPlus cuyo campo precinto está vacío.',
-            'Orden alfabético por la columna estatus y, como segundo criterio, por la columna precinto de menor a mayor.',
-            'Lectura de otra hoja del mismo Excel SAEPlus para relacionar barrio, dirección y ciudad cuando estén en una pestaña diferente.',
-            'Detección de zonas cercanas cuando en SAEPlus hay precinto vacío y en SmartOLT aparecen estados Offline, Power fail o LOS.',
-            'Comparación opcional entre los números de precinto escritos en la web y la columna precinto del Excel de SAEPlus.',
+            'Compara los precintos escritos en la web contra la columna precinto de SAEPlus.',
+            'Busca solo abonados ACTIVO o CORTADO con precinto vacío en SAEPlus y con estado Offline, Power fail o LOS en SmartOLT.',
+            'Organiza los casos por prioridad de revisión y por ubicación aproximada para facilitar la validación en campo.',
+            'Si escribes precintos en la web, también compara barrio y dirección para sugerir ubicaciones similares dentro de SAEPlus.',
         ],
-        'Se genera un Excel con las hojas Coinciden y Detalle cruce, y además una hoja inicial de Precintos cargados cuando escribes precintos en la web.',
+        'Se genera un Excel corto y operativo. Si escribes precintos, verás Precintos cargados, una hoja adicional de Ubicaciones sugeridas y luego Posibles precintos perdidos.',
         [
             'Archivo de abonados exportado desde SAEPlus en formato Excel.',
             'Archivo de abonados exportado desde SmartOLT en formato CSV.',
@@ -432,12 +430,10 @@ def comparativo_precintos():
         ],
         [
             'Exporta el archivo de abonados desde SAEPlus incluyendo la columna precinto.',
-            'Si barrio, dirección o ciudad están en otra hoja del mismo libro, consérvala dentro del mismo Excel.',
             'Exporta el archivo de abonados desde SmartOLT en formato CSV.',
-            'Si deseas comparar una lista de precintos, escríbelos o pégalos en el campo de texto de la página.',
             'Abre el Excel de SAEPlus y guárdalo nuevamente antes de cargarlo.',
-            'Carga SAEPlus y SmartOLT, y diligencia el campo de precintos solo si lo necesitas.',
-            'Ejecuta el análisis y revisa las hojas del Excel resultante para validar coincidencias, cruces cercanos y comparación de precintos cargados.',
+            'Pega los precintos del técnico solo si quieres validar cuáles ya están registrados.',
+            'Ejecuta el análisis y revisa primero Precintos cargados, luego Ubicaciones sugeridas y después Posibles precintos perdidos.',
         ],
         [
             {'id': 'saeplus', 'name': 'saeplus', 'label': 'Archivo de Abonados SAEPlus (Excel)', 'accept': '.xlsx,.xls'},
@@ -453,6 +449,7 @@ def comparativo_precintos():
                 'help': 'Puedes pegar uno por línea o separados por comas, punto y coma, espacios o tabulaciones.',
             },
         ],
+        vista_compacta=True,
     )
 
 

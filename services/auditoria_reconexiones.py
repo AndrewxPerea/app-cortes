@@ -1,6 +1,11 @@
 import pandas as pd
 
-from funciones import normalizar_columnas, procesar_archivo_csv_solo, procesar_archivo_excel_solo
+from funciones import (
+    leer_excel_seguro,
+    normalizar_columnas,
+    procesar_archivo_csv_solo,
+    procesar_archivo_excel_solo,
+)
 from services.common import excel_desde_hojas, validar_columnas
 
 
@@ -12,9 +17,9 @@ def tomar_columna(df, *candidatas):
 
 
 def procesar_auditoria_reconexiones(drive_file, saeplus_file, epayco_file, olt_file):
-    df_drive = pd.read_excel(drive_file)
-    df_saeplus = pd.read_excel(saeplus_file)
-    df_epayco = pd.read_excel(epayco_file)
+    df_drive = leer_excel_seguro(drive_file)
+    df_saeplus = leer_excel_seguro(saeplus_file)
+    df_epayco = leer_excel_seguro(epayco_file)
     saeplus_file.seek(0)
     df_abonado_cortes = procesar_archivo_excel_solo(saeplus_file)
     df_olt_cortes = procesar_archivo_csv_solo(olt_file)

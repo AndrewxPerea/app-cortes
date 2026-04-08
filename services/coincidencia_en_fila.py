@@ -3,6 +3,7 @@ import unicodedata
 
 import pandas as pd
 
+from funciones import abrir_excel_seguro
 from services.common import excel_desde_dataframe, excel_desde_hojas
 
 
@@ -77,7 +78,7 @@ def obtener_stream(archivo):
 
 
 def procesar_coincidencia_en_fila(archivo_excel):
-    excel_data = pd.ExcelFile(obtener_stream(archivo_excel))
+    excel_data = abrir_excel_seguro(obtener_stream(archivo_excel))
     hojas_resultado = []
     vistas_previas = []
     columnas_vista = None

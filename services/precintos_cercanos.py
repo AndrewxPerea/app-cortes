@@ -3,7 +3,7 @@ import unicodedata
 
 import pandas as pd
 
-from funciones import procesar_archivo_csv_solo
+from funciones import abrir_excel_seguro, procesar_archivo_csv_solo
 from services.common import excel_desde_hojas, validar_columnas
 
 
@@ -158,7 +158,7 @@ def preparar_hoja_saeplus(df):
 
 
 def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False):
-    excel = pd.ExcelFile(obtener_stream(archivo_excel))
+    excel = abrir_excel_seguro(obtener_stream(archivo_excel))
     bases = []
     ubicaciones = []
 
