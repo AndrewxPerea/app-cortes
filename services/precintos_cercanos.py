@@ -173,7 +173,7 @@ def preparar_hoja_saeplus(df):
     return base, ubicacion
 
 
-def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False, consolidar_base=True):
+def cargar_componentes_saeplus(archivo_excel):
     excel = abrir_excel_seguro(obtener_stream(archivo_excel))
     bases = []
     ubicaciones = []
@@ -197,21 +197,15 @@ def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False, consol
         if columna not in base.columns:
             base[columna] = pd.NA
 
-    if consolidar_base:
-        base = consolidar_por_llave(
-            base,
-            'equipo maco',
-            ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto', *COLUMNAS_UBICACION]
-        )
-    validar_columnas(
-        base,
-        ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],
-        'SAEPlus'
-    )
+    return base, ubicaciones
+
+
+def completar_ubicacion_saeplus(base, ubicaciones, requerir_ubicacion=False):
+    trabajo = base.copy()
 
     if not ubicaciones:
         if not requerir_ubicacion:
-            return base
+            return trabajo
         raise ValueError(
             "El archivo SAEPlus no contiene una hoja con columnas de ubicación como barrio, dirección o ciudad."
         )
@@ -234,25 +228,56 @@ def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False, consol
             continue
 
         renombres = {columna: f'{columna}_ubicacion' for columna in COLUMNAS_UBICACION}
-        base = base.merge(aux.rename(columns=renombres), on=llave, how='left')
+        trabajo = trabajo.merge(aux.rename(columns=renombres), on=llave, how='left')
 
         for columna in COLUMNAS_UBICACION:
             columna_ubicacion = f'{columna}_ubicacion'
-            if columna_ubicacion not in base.columns:
+            if columna_ubicacion not in trabajo.columns:
                 continue
 
-            mascara_vacia = ~serie_tiene_contenido(base[columna])
-            base.loc[mascara_vacia, columna] = base.loc[mascara_vacia, columna_ubicacion]
-            base = base.drop(columns=[columna_ubicacion])
+            mascara_vacia = ~serie_tiene_contenido(trabajo[columna])
+            trabajo.loc[mascara_vacia, columna] = trabajo.loc[mascara_vacia, columna_ubicacion]
+            trabajo = trabajo.drop(columns=[columna_ubicacion])
 
-    if not any(serie_tiene_contenido(base[columna]).any() for columna in COLUMNAS_UBICACION):
+    if not any(serie_tiene_contenido(trabajo[columna]).any() for columna in COLUMNAS_UBICACION):
         if not requerir_ubicacion:
-            return base
+            return trabajo
         raise ValueError(
             "No fue posible relacionar las columnas de barrio, dirección o ciudad con la hoja principal de SAEPlus."
         )
 
-    return base
+    return trabajo
+
+
+def cargar_saeplus_variantes_con_ubicacion(archivo_excel, requerir_ubicacion=False):
+    base, ubicaciones = cargar_componentes_saeplus(archivo_excel)
+    base_detallada = completar_ubicacion_saeplus(base, ubicaciones, requerir_ubicacion=requerir_ubicacion)
+    base_consolidada = consolidar_por_llave(
+        base_detallada,
+        'equipo maco',
+        ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto', *COLUMNAS_UBICACION]
+    )
+    validar_columnas(
+        base_detallada,
+        ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],
+        'SAEPlus'
+    )
+    validar_columnas(
+        base_consolidada,
+        ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],
+        'SAEPlus'
+    )
+    return base_consolidada, base_detallada
+
+
+def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False, consolidar_base=True):
+    base_consolidada, base_detallada = cargar_saeplus_variantes_con_ubicacion(
+        archivo_excel,
+        requerir_ubicacion=requerir_ubicacion
+    )
+    if consolidar_base:
+        return base_consolidada
+    return base_detallada
 
 
 def normalizar_texto(valor):
