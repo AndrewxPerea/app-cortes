@@ -3,6 +3,7 @@ import tempfile
 import unicodedata
 from datetime import datetime
 
+import pandas as pd
 from flask import Flask, redirect, render_template, request, send_file, session
 
 from services.atenuaciones import procesar_atenuaciones
@@ -60,7 +61,8 @@ def guardar_resultado_excel(output, nombre_descarga=None):
 
 
 def renderizar_resultado(resultado, columns=None):
-    data = resultado['data']
+    data = resultado['data'].copy()
+    data = data.where(pd.notna(data), '')
     return render_template(
         'resultado.html',
         data=data.to_dict(orient='records'),
@@ -385,12 +387,12 @@ def comparativo_precintos():
 
     return renderizar_formulario_analisis(
         'Comparativo de Precintos',
-        'Ayuda a decidir si un corte puede corresponder a un precinto no actualizado en SAEPlus. Primero valida los precintos enviados por los técnicos y luego lista solo los abonados ACTIVO o CORTADO sin precinto que además aparecen con alerta técnica en SmartOLT.',
+        'Ayuda a decidir si un corte puede corresponder a un precinto no actualizado en SAEPlus. Primero valida los precintos enviados por los técnicos y luego lista los abonados sin precinto que además aparecen con contexto técnico en SmartOLT, conservando el estatus real que tengan en SAEPlus.',
         '/comparativo_precintos',
         'Comparativo de precintos',
         [
-            'Compara los precintos escritos en la web contra la columna precinto de SAEPlus.',
-            'Busca solo abonados ACTIVO o CORTADO con precinto vacío en SAEPlus y con estado Offline, Power fail o LOS en SmartOLT.',
+            'Compara los precintos escritos en la web contra la columna precinto de SAEPlus, sin filtrar por estatus del abonado en esa hoja inicial.',
+            'Usa todos los estatus que vengan en SAEPlus para las hojas de precintos y cruza los abonados con precinto vacío contra SmartOLT.',
             'Agrega una hoja adicional que conserva todos los estados de SmartOLT para revisar también casos Online u otros estados operativos.',
             'Organiza los casos por prioridad de revisión y por ubicación aproximada para facilitar la validación en campo, incluyendo el status SmartOLT en Ubicaciones sugeridas.',
             'Si escribes precintos en la web, Posibles precintos perdidos se vuelve más estricto y solo conserva casos relacionados por mismo barrio y dirección aproximada, o por mismo OLT, misma zona operativa y mismo barrio.',

@@ -139,7 +139,7 @@ def consolidar_por_llave(df, llave, columnas):
 
     return (
         trabajo.groupby(llave, as_index=False, dropna=False, sort=False)
-        .first()
+        .last()
         .reindex(columns=columnas)
     )
 
@@ -173,7 +173,7 @@ def preparar_hoja_saeplus(df):
     return base, ubicacion
 
 
-def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False):
+def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False, consolidar_base=True):
     excel = abrir_excel_seguro(obtener_stream(archivo_excel))
     bases = []
     ubicaciones = []
@@ -197,11 +197,12 @@ def cargar_saeplus_con_ubicacion(archivo_excel, requerir_ubicacion=False):
         if columna not in base.columns:
             base[columna] = pd.NA
 
-    base = consolidar_por_llave(
-        base,
-        'equipo maco',
-        ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto', *COLUMNAS_UBICACION]
-    )
+    if consolidar_base:
+        base = consolidar_por_llave(
+            base,
+            'equipo maco',
+            ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto', *COLUMNAS_UBICACION]
+        )
     validar_columnas(
         base,
         ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],

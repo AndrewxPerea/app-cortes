@@ -39,7 +39,19 @@ def es_status_alerta(valor):
 
 
 def es_estatus_permitido(valor):
-    return normalizar_texto(valor) in {'ACTIVO', 'CORTADO'}
+    return valor_tiene_contenido(valor)
+
+
+def prioridad_estatus_precinto(valor):
+    estado = normalizar_texto(valor)
+    orden = {
+        'POR CORTAR': 0,
+        'POR SUSPENDER': 1,
+        'CORTADO': 2,
+        'SUSPENDIDO': 3,
+        'ACTIVO': 4,
+    }
+    return orden.get(estado, 99)
 
 
 def prioridad_status(valor):
@@ -253,9 +265,16 @@ def construir_comparacion_precintos_cargados(saeplus, texto_precintos):
         return None
 
     sae_precintos = saeplus[saeplus['precinto'].apply(valor_tiene_contenido)].copy()
+    sae_precintos['orden saeplus'] = range(len(sae_precintos))
     sae_precintos['precinto normalizado'] = sae_precintos['precinto'].apply(normalizar_precinto)
     sae_precintos['n° abonado'] = sae_precintos['n abonado']
     sae_precintos['dirección'] = sae_precintos['direccion']
+    sae_precintos['prioridad estatus'] = sae_precintos['estatus'].apply(prioridad_estatus_precinto)
+    sae_precintos = sae_precintos.sort_values(
+        by=['precinto normalizado', 'prioridad estatus', 'orden saeplus'],
+        ascending=[True, True, True],
+        na_position='last'
+    ).drop_duplicates(subset=['precinto normalizado'], keep='first')
 
     comparacion = precintos_cargados.merge(
         sae_precintos[
@@ -637,13 +656,14 @@ def generar_excel_comparativo(
 
 
 def procesar_comparativo_precintos(saeplus_file, olt_file, texto_precintos=''):
-    saeplus = cargar_saeplus_con_ubicacion(saeplus_file, requerir_ubicacion=False)
+    saeplus = cargar_saeplus_con_ubicacion(saeplus_file, requerir_ubicacion=False, consolidar_base=True)
+    saeplus_precintos = cargar_saeplus_con_ubicacion(saeplus_file, requerir_ubicacion=False, consolidar_base=False)
     validar_columnas(
         saeplus,
         ['equipo maco', 'n abonado', 'documento', 'nombre', 'estatus', 'precinto'],
         'SAEPlus'
     )
-    comparacion_precintos = construir_comparacion_precintos_cargados(saeplus, texto_precintos)
+    comparacion_precintos = construir_comparacion_precintos_cargados(saeplus_precintos, texto_precintos)
     if olt_file is None and comparacion_precintos is None:
         raise ValueError(
             'Debes cargar el archivo de SmartOLT o escribir al menos un precinto para validar.'
