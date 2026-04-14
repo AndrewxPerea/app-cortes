@@ -94,7 +94,7 @@ Archivos:
 Columnas clave esperadas:
 - en Excel: `EQUIPO MAC`, `N° Abonado`
 - en CSV: `SN`
-- en el resultado: `estatus`, `observaciones`, `catv`, `administrative status`, `status`, `ingeniero`
+- en el resultado: `estatus` de SAEPlus, `observaciones`, `catv`, `administrative status`, `status`
 
 Salida:
 - abonados con observacion vacia, no activos en sistema y con algun indicio de servicio activo en red

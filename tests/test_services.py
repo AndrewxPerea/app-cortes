@@ -344,9 +344,9 @@ class CortesServiceTests(unittest.TestCase):
             'documento': ['80'],
             'nombre': ['Pedro'],
             'apellido': ['Lopez'],
-            'estatus': ['SUSPENDIDO'],
+            'Estatus': ['ACTIVO'],
             'observaciones': [None],
-            'ingeniero': ['Carlos'],
+            'Ingeniero': ['Carlos'],
         })
         saeplus = pd.DataFrame({
             'EQUIPO MAC': ['AA:BB:CC:11:22:12345678'],
@@ -354,7 +354,7 @@ class CortesServiceTests(unittest.TestCase):
             'documento': ['80'],
             'nombre': ['Pedro'],
             'apellido': ['Lopez'],
-            'estatus sae': ['SUSPENDIDO'],
+            'Estatus': ['SUSPENDIDO'],
         })
         olt = pd.DataFrame({
             'SN': ['SN12345678'],
@@ -367,6 +367,8 @@ class CortesServiceTests(unittest.TestCase):
         resultado = procesar_cortes(excel_buffer(cortes), csv_buffer(olt), excel_buffer(saeplus))
 
         self.assertEqual(resultado['num_casos'], 1)
+        self.assertEqual(resultado['data']['estatus'].tolist(), ['SUSPENDIDO'])
+        self.assertNotIn('ingeniero', resultado['data'].columns)
         self.assertEqual(resultado['data']['n° abonado'].tolist(), [3001])
 
 
