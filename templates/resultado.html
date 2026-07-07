@@ -8,6 +8,20 @@
         <h1>Resultado del Procesamiento</h1>
         <h3>Número de casos encontrados: {{ num_casos }}</h3>
         <p class="text-muted">Archivo listo para descargar: {{ nombre_descarga }}</p>
+        {% if summary %}
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3 my-3">
+            {% for key, value in summary.items() %}
+            <div class="col">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body py-3">
+                        <div class="small text-muted">{{ key }}</div>
+                        <div class="fs-5 fw-semibold">{{ value }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         <div class="text-center">
             <a href="/" class="btn btn-cafe-outline">Pagina Principa</a>
             <a href="/descargar_resultado" class="btn btn-outline-primary">Descargar Excel</a>

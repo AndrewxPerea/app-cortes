@@ -16,6 +16,7 @@ from services.coincidencia_en_fila import procesar_coincidencia_en_fila
 from services.coincidencias_saeplus_smartolt import procesar_coincidencias_saeplus_smartolt
 from services.cortes import procesar_cortes
 from services.diferentes import procesar_diferentes
+from services.jobs import job_estadisticos_olt, procesar_estadisticos_olt
 from services.navegacion import (
     procesar_navegacion_catv_y_planes,
     procesar_navegacion_estado_servicio,
@@ -1226,6 +1227,54 @@ class AtenuacionesServiceTests(unittest.TestCase):
         self.assertGreater(resultado['num_casos'], 0)
         self.assertIn('prioridad', resultado['data'].columns)
         self.assertEqual(resultado['data'].iloc[0]['danio_dominante'], 'FIBRA')
+
+
+class EstadisticosOLTServiceTests(unittest.TestCase):
+    def test_procesar_estadisticos_olt_genera_resumen_y_hojas(self):
+        olt = pd.DataFrame({
+            'SN': ['SN1', 'SN2', 'SN3'],
+            'OLT': ['OLT-A', 'OLT-A', 'OLT-B'],
+            'Board': ['1', '1', '2'],
+            'Port': ['1', '1', '3'],
+            'Status': ['Online', 'Offline', 'Online'],
+            'Signal': ['Warning', 'Critical', 'Normal'],
+            'Signal 1310': [-25, '-31', -28],
+            'Signal 1490': [-24, -29, -27],
+            'CATV': ['Enabled', 'Disabled', 'Enabled'],
+            'Administrative status': ['Enabled', 'Disabled', 'Enabled'],
+        })
+
+        resultado = procesar_estadisticos_olt(csv_buffer(olt))
+
+        self.assertEqual(resultado['num_casos'], 3)
+        self.assertEqual(resultado['summary']['Total OLT'], 2)
+        self.assertEqual(resultado['summary']['Online'], 2)
+        self.assertEqual(resultado['summary']['Offline'], 1)
+        self.assertEqual(resultado['summary']['Warning'], 1)
+        self.assertEqual(resultado['summary']['Critical'], 1)
+        self.assertEqual(resultado['data']['total abonados'].tolist(), [2, 1])
+
+        excel = pd.ExcelFile(resultado['excel'])
+        self.assertEqual(
+            excel.sheet_names,
+            [
+                'Resumen por OLT',
+                'Status por OLT',
+                'Signal por OLT',
+                'Board Port',
+                'CATV',
+                'Administrative Status',
+            ]
+        )
+        resumen = excel.parse('Resumen por OLT')
+        self.assertEqual(resumen.loc[0, 'total abonados'], 2)
+        self.assertEqual(resumen.loc[0, 'peor signal 1310'], -31)
+
+    def test_job_estadisticos_olt_lanza_error_si_faltan_columnas(self):
+        with self.assertRaises(ValueError) as ctx:
+            job_estadisticos_olt(pd.DataFrame({'olt': ['OLT-A']}))
+
+        self.assertIn('sn', str(ctx.exception))
 
 
 class CoincidenciaEnFilaServiceTests(unittest.TestCase):

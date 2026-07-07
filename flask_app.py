@@ -12,11 +12,13 @@ from services.comparativo_equipos import procesar_comparativo_equipos
 from services.comparativo_precintos import procesar_comparativo_precintos
 from services.coincidencia_en_fila import procesar_coincidencia_en_fila
 from services.cortes import procesar_cortes
+from services.jobs import procesar_estadisticos_olt
 from services.navegacion import (
     procesar_navegacion_catv_y_planes,
     procesar_navegacion_estado_servicio,
     procesar_sin_navegar,
 )
+from services.recurrencias import PROCESSING_YEAR, procesar_recurrencias
 from services.reconexiones import procesar_reconexiones
 from services.upload_validation import validar_archivo_opcional, validar_archivos_requeridos
 from services.velocidad import procesar_verificacion_velocidad
@@ -31,6 +33,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def limpiar_resultado_sesion():
     ruta_anterior = session.pop('resultado_excel_path', None)
     session.pop('resultado_excel_name', None)
+    session.pop('resultado_excel_id', None)
     if ruta_anterior and os.path.exists(ruta_anterior):
         os.remove(ruta_anterior)
 
@@ -54,9 +57,11 @@ def construir_nombre_descarga(nombre_base):
 def guardar_resultado_excel(output, nombre_descarga=None):
     limpiar_resultado_sesion()
     output.seek(0)
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as temp_file:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx', dir=app.config['UPLOAD_FOLDER']) as temp_file:
         temp_file.write(output.getvalue())
         session['resultado_excel_path'] = temp_file.name
+        session['resultado_excel_id'] = os.path.basename(temp_file.name)
         session['resultado_excel_name'] = nombre_descarga or construir_nombre_descarga('resultado')
 
 
@@ -68,7 +73,9 @@ def renderizar_resultado(resultado, columns=None):
         data=data.to_dict(orient='records'),
         columns=columns or resultado.get('columns', data.columns),
         num_casos=resultado['num_casos'],
-        nombre_descarga=session.get('resultado_excel_name', 'resultado.xlsx')
+        nombre_descarga=session.get('resultado_excel_name', 'resultado.xlsx'),
+        file_id=resultado.get('file_id') or session.get('resultado_excel_id'),
+        summary=resultado.get('summary'),
     )
 
 
@@ -104,6 +111,7 @@ def renderizar_formulario_analisis(
     archivos_requeridos,
     pasos,
     campos_archivo,
+    campos_input=None,
     campos_texto=None,
     volver_url='/',
     volver_texto='Volver al inicio',
@@ -121,6 +129,7 @@ def renderizar_formulario_analisis(
         archivos_requeridos=archivos_requeridos,
         pasos=pasos,
         campos_archivo=campos_archivo,
+        campos_input=campos_input or [],
         campos_texto=campos_texto or [],
         volver_url=volver_url,
         volver_texto=volver_texto,
@@ -694,6 +703,92 @@ def atenuaciones():
         [
             {'id': 'olt_csv', 'name': 'olt_csv', 'label': 'Archivo OLT (CSV)', 'accept': '.csv'},
         ],
+    )
+
+
+@app.route('/estadisticos_olt', methods=['GET', 'POST'])
+def estadisticos_olt():
+    if request.method == 'POST':
+        try:
+            archivos = validar_archivos_requeridos(
+                request.files,
+                [
+                    ('olt', {'.csv'}, 'de SmartOLT'),
+                ]
+            )
+            resultado = procesar_estadisticos_olt(archivos['olt'])
+        except Exception as e:
+            return render_template('error.html', error=f"Error en el procesamiento: {e}")
+
+        return guardar_y_renderizar_resultado(resultado, 'Estadisticos OLT')
+
+    return render_template(
+        'estadisticos_olt.html',
+        nombre_descarga=construir_nombre_descarga('Estadisticos OLT'),
+    )
+
+
+@app.route('/recurrencias', methods=['GET', 'POST'])
+def recurrencias():
+    if request.method == 'POST':
+        try:
+            archivos = validar_archivos_requeridos(
+                request.files,
+                [
+                    ('ordenes', {'.xlsx', '.xlsm'}, 'Excel de ordenes de servicio'),
+                ]
+            )
+            year_raw = str(request.form.get('year') or PROCESSING_YEAR).strip()
+            year = int(year_raw)
+            if year < 1900 or year > 2100:
+                raise ValueError("El año debe estar entre 1900 y 2100.")
+
+            resultado = procesar_recurrencias(archivos['ordenes'], year=year)
+        except Exception as e:
+            return render_template('error.html', error=f"Error en el procesamiento: {e}")
+
+        return guardar_y_renderizar_resultado(resultado, 'Recurrencias ordenes de servicio')
+
+    return renderizar_formulario_analisis(
+        'Recurrencias de Servicio',
+        'Transforma un Excel de ordenes de servicio, calcula visitas cronologicas por abonado y genera un archivo enriquecido listo para Power BI.',
+        '/recurrencias',
+        'Recurrencias ordenes de servicio',
+        [
+            'Valida que existan todas las columnas obligatorias del archivo de ordenes.',
+            'Limpia encabezados, espacios y valores de texto antes de transformar.',
+            'Construye Fecha con DÍA, MES y el año indicado en el formulario.',
+            'Ordena cada ABONADO por fecha para calcular visita, recurrencia y cambios de ingeniero.',
+            'Conserva todas las columnas originales y agrega las columnas calculadas al final.',
+        ],
+        'Se genera un Excel con todas las ordenes transformadas y enriquecidas para cargar directamente en Power BI.',
+        [
+            'Archivo Excel de ordenes de servicio en formato .xlsx o .xlsm.',
+        ],
+        [
+            'Exporta el archivo de ordenes de servicio desde la fuente operativa.',
+            'Abre el Excel y guardalo nuevamente si viene de una descarga automatica.',
+            'Carga el archivo en esta pagina.',
+            'Confirma el año que se usara para construir la columna Fecha.',
+            'Ejecuta el proceso y descarga el Excel listo para Power BI.',
+        ],
+        [
+            {'id': 'ordenes', 'name': 'ordenes', 'label': 'Archivo de Ordenes de Servicio', 'accept': '.xlsx,.xlsm'},
+        ],
+        campos_input=[
+            {
+                'id': 'year',
+                'name': 'year',
+                'label': 'Año de las visitas',
+                'type': 'number',
+                'value': PROCESSING_YEAR,
+                'min': 1900,
+                'max': 2100,
+                'required': True,
+                'help': 'Este año se combina con las columnas DÍA y MES para construir Fecha.',
+            },
+        ],
+        vista_compacta=True,
     )
 
 

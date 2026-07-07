@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Estad&iacute;sticos OLT{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h1 class="mb-3">Estad&iacute;sticos OLT</h1>
+                    <p class="text-muted mb-4">
+                        Carga el CSV exportado desde SmartOLT para generar el resumen operativo por OLT, estado, se&ntilde;al, CATV, estado administrativo y puerto.
+                    </p>
+                    <div class="mb-3">
+                        <a class="btn btn-outline-secondary" href="/">Volver al inicio</a>
+                    </div>
+                    <form id="resultForm" action="{{ url_for('estadisticos_olt') }}" method="post" enctype="multipart/form-data">
+                        <div class="input-group mb-3">
+                            <label class="input-group-text" for="olt">Archivo SmartOLT (CSV)</label>
+                            <input type="file" class="form-control" id="olt" name="olt" accept=".csv" required>
+                        </div>
+                        <input type="submit" class="btn btn-cafe-outline" value="Procesar Archivo">
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h3 class="mb-3">Hojas del Excel</h3>
+                    <ul class="mb-0">
+                        <li>Resumen por OLT</li>
+                        <li>Status por OLT</li>
+                        <li>Signal por OLT</li>
+                        <li>Board Port</li>
+                        <li>CATV</li>
+                        <li>Administrative Status</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h3 class="mb-3">Archivo de salida</h3>
+                    <p class="mb-0"><strong>Nombre sugerido de descarga:</strong> {{ nombre_descarga }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

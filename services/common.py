@@ -26,3 +26,7 @@ def excel_desde_hojas(hojas):
             df.to_excel(writer, index=False, sheet_name=sheet_name)
     output.seek(0)
     return output
+
+
+def save_excel_sheets(hojas):
+    return excel_desde_hojas(hojas)

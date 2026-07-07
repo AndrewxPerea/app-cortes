@@ -36,6 +36,26 @@
                         <div class="form-text mb-3">{{ campo.help }}</div>
                         {% endif %}
                         {% endfor %}
+                        {% for campo in campos_input or [] %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ campo.id }}">{{ campo.label }}</label>
+                            <input
+                                type="{{ campo.type or 'text' }}"
+                                class="form-control"
+                                id="{{ campo.id }}"
+                                name="{{ campo.name }}"
+                                value="{{ campo.value or '' }}"
+                                {% if campo.placeholder %}placeholder="{{ campo.placeholder }}"{% endif %}
+                                {% if campo.min is defined %}min="{{ campo.min }}"{% endif %}
+                                {% if campo.max is defined %}max="{{ campo.max }}"{% endif %}
+                                {% if campo.step is defined %}step="{{ campo.step }}"{% endif %}
+                                {% if campo.required %}required{% endif %}
+                            >
+                            {% if campo.help %}
+                            <div class="form-text">{{ campo.help }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
                         {% for campo in campos_texto or [] %}
                         <div class="mb-3">
                             <label class="form-label" for="{{ campo.id }}">{{ campo.label }}</label>
