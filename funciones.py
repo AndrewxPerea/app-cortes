@@ -165,14 +165,17 @@ def reparar_fills_estilos_xlsx(data):
 
 
 def _ejecutar_lectura_excel(archivo, lector):
-    data = obtener_bytes_archivo(archivo)
+    source = getattr(archivo, 'stream', archivo)
 
     try:
-        return lector(io.BytesIO(data))
+        if hasattr(source, 'seek'):
+            source.seek(0)
+        return lector(source)
     except Exception as error:
         if not es_error_fill_openpyxl(error):
             raise
 
+    data = obtener_bytes_archivo(archivo)
     reparado = reparar_fills_estilos_xlsx(data)
     return lector(io.BytesIO(reparado))
 

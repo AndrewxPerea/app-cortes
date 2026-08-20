@@ -1,13 +1,22 @@
 # app-cortes
 
-Aplicacion Flask para auditorias operativas basadas en cruces de archivos Excel y CSV. La app permite cargar reportes de distintas fuentes, filtrarlos con `pandas` y descargar un Excel con los hallazgos.
+Aplicacion Flask para auditorias operativas basadas en cruces de archivos Excel y CSV.
+El aplicativo recibe reportes de SAEPlus, SmartOLT, Workdrive/Drive y ePayco, procesa
+los datos con `pandas` y entrega archivos Excel con hallazgos listos para gestion.
+
+## Documentacion
+
+- [Guia de usuario](docs/guia_usuario.md): uso de cada pantalla, entradas, reglas y salidas.
+- [Arquitectura](docs/arquitectura.md): estructura del proyecto, flujo web y contrato de servicios.
+- [Referencia tecnica](docs/referencia_tecnica.md): modulos, funciones principales, rutas y scripts auxiliares.
+- [Columnas y salidas](docs/columnas_y_salidas.md): matriz rapida de archivos requeridos, columnas y hojas generadas.
 
 ## Requisitos
 
-- Python 3.11 recomendado
-- Dependencias del archivo [`requirements.txt`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/requirements.txt)
+- Python 3.11 recomendado.
+- Dependencias definidas en `requirements.txt`.
 
-## Instalacion
+Instalacion:
 
 ```bash
 pip install -r requirements.txt
@@ -19,204 +28,85 @@ pip install -r requirements.txt
 python flask_app.py
 ```
 
-La aplicacion inicia en modo debug y normalmente queda disponible en `http://127.0.0.1:5000/`.
+Por defecto la aplicacion inicia en modo debug y queda disponible en:
 
-## Ejecutar pruebas
+```text
+http://127.0.0.1:5000/
+```
+
+Para produccion se recomienda definir `FLASK_SECRET_KEY` y ejecutar con un servidor WSGI
+como `gunicorn` en Linux.
+
+## Pruebas
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
+Las pruebas cubren servicios de negocio, validaciones, lectura segura de Excel, cruces
+SAEPlus/SmartOLT, precintos, navegacion, atenuaciones, estadisticos OLT, recurrencias y
+coincidencia en fila.
+
 ## Variables de entorno
 
-- `FLASK_SECRET_KEY`: clave para la sesion de Flask. En produccion debe definirse con un valor seguro.
-
-## Estructura principal
-
-- [`flask_app.py`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/flask_app.py): rutas Flask, validacion y generacion de reportes.
-- [`funciones.py`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/funciones.py): utilidades para lectura de archivos y normalizacion.
-- [`services/`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/services): logica de negocio separada por auditoria y helpers compartidos.
-- [`templates/`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/templates): vistas HTML.
-- [`static/`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/static): estilos y JS del frontend.
-- [`conver.py`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/conver.py): script auxiliar de prueba, no hace parte del flujo principal Flask.
+- `FLASK_SECRET_KEY`: clave de sesion de Flask. En desarrollo existe un valor por defecto,
+  pero en produccion debe configurarse con un valor seguro.
 
 ## Flujo general
 
-1. El usuario entra a una ruta de auditoria.
-2. Sube uno o varios archivos Excel/CSV.
-3. La app procesa los archivos con `pandas`, cruza columnas clave y aplica filtros.
-4. Se muestra una tabla HTML con resultados.
-5. Se habilita la descarga de un archivo `resultado.xlsx`.
-
-El resultado descargable ya no se comparte globalmente entre usuarios. Cada sesion guarda su propio archivo temporal.
+1. El usuario abre una pantalla de auditoria.
+2. Carga uno o varios archivos `.xlsx`, `.xls`, `.xlsm` o `.csv`, segun la auditoria.
+3. Flask valida que existan los archivos y que tengan la extension esperada.
+4. La ruta llama un servicio en `services/`.
+5. El servicio lee los archivos, valida columnas, cruza datos y genera un `BytesIO` Excel.
+6. La ruta guarda el Excel temporalmente en `uploads/` asociado a la sesion.
+7. La pantalla de resultado muestra una vista previa y permite descargar el Excel.
 
 ## Rutas principales
 
-- `/`: pagina principal.
-- `/reconexiones`: formulario de auditoria de reconexiones.
-- `/procesar`: procesa el formulario de reconexiones.
-- `/cortes`: auditoria de abonados en corte.
-- `/verificar_velocidad`: compara plan contratado vs velocidad configurada.
-- `/diferentes`: detecta equipos que no coinciden entre SAEPlus y OLT.
-- `/atenuaciones`: analiza señales 1310/1490 y genera agenda priorizada por daño.
-- `/sin_navegar`: auditoria general de navegacion.
-- `/auditoria_reconexiones`: cruza drive, SAEPlus, ePayco y SmartOLT.
-- `/descargar_resultado`: descarga el ultimo Excel generado en la sesion actual.
+| Ruta | Funcion |
+| --- | --- |
+| `/` | Pagina principal. |
+| `/reconexiones` y `/procesar` | Auditoria simple de reconexiones. |
+| `/cortes` | Auditoria de abonados en corte con servicio activo en red. |
+| `/verificar_velocidad` | Compara plan SAEPlus contra velocidad SmartOLT y CATV. |
+| `/comparativo_equipos` | Cruza equipos que coinciden y no coinciden entre SAEPlus y SmartOLT. |
+| `/comparativo_precintos` | Valida precintos cargados y alertas cercanas con SmartOLT. |
+| `/sin_navegar` | Auditoria general de navegacion en cuatro hojas. |
+| `/navegacion_estado_servicio` | Subanalisis de activos sin navegar y desactivos con internet. |
+| `/navegacion_catv_y_planes` | Subanalisis de CATV y planes con arroba. |
+| `/auditoria_reconexiones` | Cruce Workdrive, SAEPlus, ePayco y SmartOLT. |
+| `/atenuaciones` | Agenda por senales opticas 1310/1490. |
+| `/estadisticos_olt` | Resumen y priorizacion de puertos SmartOLT. |
+| `/recurrencias` | Transformacion de ordenes de servicio para Power BI. |
+| `/coincidencia_en_fila` | Compara columnas ABONADO y numero de abonado en un Excel. |
+| `/descargar_resultado` | Descarga el ultimo Excel generado en la sesion actual. |
 
-## Archivos y columnas esperadas
+Tambien existen rutas historicas que redirigen o reutilizan pantallas actuales:
+`/diferentes`, `/coincidencias_saeplus_smartolt`, `/precintos_cercanos`,
+`/navegacion_activos_sin_navegar`, `/navegacion_desactivos_con_internet`,
+`/navegacion_activos_sin_catv` y `/navegacion_solo_con_arroba_y_catv_activo`.
 
-La app depende fuertemente de nombres exactos de columnas. Si una fuente cambia encabezados, es probable que el proceso falle.
+## Estructura
 
-### Reconexiones
+```text
+.
+|-- flask_app.py                 # Rutas Flask y orquestacion web
+|-- funciones.py                 # Lectura segura de Excel/CSV y utilidades compartidas
+|-- services/                    # Logica de negocio por auditoria
+|-- templates/                   # Vistas Jinja2
+|-- static/                      # CSS, JS y favicon
+|-- tests/                       # Pruebas unitarias de servicios
+|-- uploads/                     # Archivos temporales de descarga por sesion
+|-- BuscarV.py                   # CLI auxiliar para agregar ciudad por prefijo de abonado
+|-- tmp_*.py                     # Scripts temporales de diagnostico
+`-- requirements.txt             # Dependencias Python
+```
 
-Ruta: `/procesar`
+## Notas operativas
 
-Archivos:
-- `abonados`: Excel de abonados SAEPlus
-- `cortes`: Excel de cortes o workdrive
-
-Columnas clave esperadas tras normalizacion:
-- primera columna convertible a `abonados`
-- columnas resultantes como `documento_x`, `nombre_x`, `apellido_x`, `observaciones`, `estatus_y`
-
-Salida:
-- casos con `observaciones` vacia y `estatus_y == ACTIVO`
-
-### Cortes
-
-Ruta: `/cortes`
-
-Archivos:
-- `abonados`: Excel de corte de abonados
-- `cortes`: CSV de SmartOLT
-- `asaeplus`: Excel de abonados SAEPlus
-
-Columnas clave esperadas:
-- en Excel: `EQUIPO MAC`, `N° Abonado`
-- en CSV: `SN`
-- en el resultado: `estatus` de SAEPlus, `observaciones`, `catv`, `administrative status`, `status`
-
-Salida:
-- abonados con observacion vacia, no activos en sistema y con algun indicio de servicio activo en red
-
-### Verificar Velocidad
-
-Ruta: `/verificar_velocidad`
-
-Archivos:
-- `saeplus`: Excel SAEPlus
-- `olt`: CSV SmartOLT
-
-Columnas clave esperadas:
-- `EQUIPO MAC`
-- `SN`
-- `detalle suscripcion`
-- `service port download speed`
-- `service port upload speed`
-- `estatus`
-
-Salida:
-- abonados activos cuya velocidad extraida del detalle no coincide con la velocidad configurada en OLT
-
-### Diferentes
-
-Ruta: `/diferentes`
-
-Archivos:
-- `saeplus`: Excel SAEPlus
-- `olt`: CSV SmartOLT
-
-Columnas clave esperadas:
-- `EQUIPO MAC`
-- `SN`
-
-Salida:
-- hoja `Diferentes`
-- hoja `Solo en SAEPLUS`
-- hoja `Solo en OLT`
-
-### Atenuaciones
-
-Ruta: `/atenuaciones`
-
-Archivos:
-- `olt_csv`: CSV exportado desde OLT
-
-Columnas clave esperadas:
-- `OLT`
-- `Board`
-- `Port`
-- `Signal 1310`
-- `Signal 1490`
-- `ONU external ID`
-- `Status`
-- `Address`
-
-Salida:
-- hojas por OLT y señal evaluada
-- `AGENDA_GENERAL`
-- agendas separadas por `FIBRA`, `ENERGIA`, `MIXTO` y `SIN_CORTE`
-
-### Sin Navegar
-
-Ruta: `/sin_navegar`
-
-Archivos:
-- `abonados`: Excel SAEPlus
-- `olt`: CSV SmartOLT
-
-Columnas clave esperadas:
-- `EQUIPO MAC`
-- `SN`
-- `estatus`
-- `status`
-- `detalle suscripcion`
-- `catv`
-- `administrative status`
-- `board`
-- `port`
-
-Salida:
-- `Activos sin navegar`
-- `Desactivos con internet`
-- `Activos sin Catv`
-- `Solo con @ y catv activo`
-
-### Auditoria Reconexiones
-
-Ruta: `/auditoria_reconexiones`
-
-Archivos:
-- `drive`: Excel de drive o workdrive
-- `saeplus`: Excel SAEPlus
-- `epayco`: Excel ePayco
-- `smartolt`: CSV SmartOLT
-
-Columnas clave esperadas:
-- primera columna convertible a `abonados` en `drive`, `saeplus` y `epayco`
-- `EQUIPO MAC` en SAEPlus
-- `SN` en SmartOLT
-
-Salida:
-- `Reconexion sin observaciones`
-- `Pagos de epayco`
-- `Abonados sin activar`
-- `pagos saeplus`
-
-## Notas tecnicas
-
-- La app usa archivos temporales por sesion para la descarga del Excel.
-- El procesamiento se hace en memoria con `BytesIO` y `pandas`.
-- La validacion de columnas es basica y ocurre antes de algunos cruces criticos.
-- `flask_app.py` ahora funciona como capa web ligera y delega el procesamiento a modulos en `services/`.
-- `funciones.py` todavia contiene utilidades no conectadas al flujo principal, como `procesar_excel` y `clasificar_estado_potencia`.
-
-## Riesgos actuales
-
-- No hay pruebas automatizadas.
-- La logica depende de encabezados exactos y formatos muy especificos de archivos de entrada.
-- El modo debug esta activo en la ejecucion directa.
-
-## Siguiente mejora recomendada
-
-Agregar pruebas automatizadas para los modulos en [`services/`](c:/Users/SUPPORT-WILSON/Desktop/Andres_Perea/Desarrollo/app-cortes/services) y para los casos borde de lectura y validacion de archivos.
+- Los cruces dependen de encabezados y formatos exportados por las fuentes operativas.
+- Los Excel descargados se generan en memoria y se guardan temporalmente por sesion.
+- La carpeta `uploads/` contiene artefactos de ejecucion; no debe usarse como fuente de datos.
+- `Auxiliar_pruebas.py` es un script peligroso que desinstala paquetes del entorno; no hace
+  parte del aplicativo Flask.

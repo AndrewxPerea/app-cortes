@@ -6,4 +6,7 @@ auxiliar_pruebas.py
 auxiliar.py
 conver.py
 busquedas.py
-
+docs/
+tests/
+uploads/
+agents/

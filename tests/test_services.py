@@ -1242,17 +1242,32 @@ class EstadisticosOLTServiceTests(unittest.TestCase):
             'Signal 1490': [-24, -29, -27],
             'CATV': ['Enabled', 'Disabled', 'Enabled'],
             'Administrative status': ['Enabled', 'Disabled', 'Enabled'],
+            'Address': ['Barrio Centro', 'Barrio Centro', 'Zona Norte'],
         })
 
         resultado = procesar_estadisticos_olt(csv_buffer(olt))
 
-        self.assertEqual(resultado['num_casos'], 3)
+        self.assertEqual(resultado['num_casos'], 0)
+        self.assertEqual(resultado['summary']['Total abonados'], 2)
         self.assertEqual(resultado['summary']['Total OLT'], 2)
+        self.assertEqual(resultado['summary']['Total puertos'], 2)
+        self.assertEqual(resultado['summary']['Puertos afectados'], 0)
+        self.assertEqual(resultado['summary']['Puertos caidos'], 0)
+        self.assertEqual(resultado['summary']['Administrative enable'], 2)
+        self.assertEqual(resultado['summary']['Administrative disable'], 1)
         self.assertEqual(resultado['summary']['Online'], 2)
-        self.assertEqual(resultado['summary']['Offline'], 1)
+        self.assertEqual(resultado['summary']['Offline'], 0)
         self.assertEqual(resultado['summary']['Warning'], 1)
-        self.assertEqual(resultado['summary']['Critical'], 1)
-        self.assertEqual(resultado['data']['total abonados'].tolist(), [2, 1])
+        self.assertEqual(resultado['summary']['Critical'], 0)
+        self.assertEqual(resultado['data']['cantidad usuarios'].tolist(), [1, 1])
+        self.assertEqual(resultado['data']['administrative status enable'].tolist(), [1, 1])
+        self.assertEqual(resultado['data']['administrative status disable'].tolist(), [1, 0])
+        self.assertEqual(resultado['data']['online'].tolist(), [1, 1])
+        self.assertEqual(resultado['data']['offline'].tolist(), [0, 0])
+        self.assertEqual(resultado['data']['referencia direccion'].tolist(), ['Barrio Centro', 'Zona Norte'])
+        self.assertEqual(resultado['data']['usuarios afectados'].tolist(), [0, 0])
+        self.assertEqual(resultado['data']['estado arpon'].tolist(), ['NORMAL', 'NORMAL'])
+        self.assertEqual(resultado['data']['prioridad'].tolist(), ['NORMAL', 'NORMAL'])
 
         excel = pd.ExcelFile(resultado['excel'])
         self.assertEqual(
@@ -1262,13 +1277,74 @@ class EstadisticosOLTServiceTests(unittest.TestCase):
                 'Status por OLT',
                 'Signal por OLT',
                 'Board Port',
+                'Puertos Priorizados',
                 'CATV',
                 'Administrative Status',
             ]
         )
         resumen = excel.parse('Resumen por OLT')
-        self.assertEqual(resumen.loc[0, 'total abonados'], 2)
-        self.assertEqual(resumen.loc[0, 'peor signal 1310'], -31)
+        self.assertEqual(resumen.loc[0, 'total abonados'], 1)
+        self.assertEqual(resumen.loc[0, 'peor signal 1310'], -25)
+        board_port = excel.parse('Board Port')
+        self.assertIn('referencia direccion', board_port.columns)
+        self.assertIn('log in', board_port.columns)
+        self.assertIn('los', board_port.columns)
+        self.assertIn('power fail', board_port.columns)
+        self.assertIn('sync mib', board_port.columns)
+        self.assertIn('otros estados', board_port.columns)
+        self.assertIn('administrative status enable', board_port.columns)
+        self.assertIn('administrative status disable', board_port.columns)
+        self.assertEqual(board_port.loc[0, 'administrative status enable'], 1)
+        self.assertEqual(board_port.loc[0, 'administrative status disable'], 1)
+        self.assertEqual(board_port.loc[0, 'referencia direccion'], 'Barrio Centro')
+        self.assertEqual(board_port.loc[0, 'cantidad usuarios'], 1)
+        self.assertEqual(board_port.loc[0, 'offline'], 0)
+
+    def test_procesar_estadisticos_olt_prioriza_puertos_por_estados_de_falla(self):
+        olt = pd.DataFrame({
+            'SN': ['SN1', 'SN2', 'SN3', 'SN4', 'SN5', 'SN6'],
+            'OLT': ['OLT-A', 'OLT-A', 'OLT-A', 'OLT-A', 'OLT-A', 'OLT-B'],
+            'Board': ['1', '1', '1', '1', '1', '2'],
+            'Port': ['1', '1', '1', '2', '2', '3'],
+            'Status': ['Online', 'LOS', 'Power fail', 'Log In', 'Sync MIB', 'Offline'],
+            'Signal': ['Normal', 'Critical', 'Warning', 'Normal', 'Normal', 'Warning'],
+            'Signal 1310': [-25, -31, -29, -27, -27, -30],
+            'Signal 1490': [-24, -29, -28, -26, -26, -29],
+            'CATV': ['Enabled', 'Enabled', 'Enabled', 'Disabled', 'Disabled', 'Enabled'],
+            'Administrative status': ['Enabled', 'Enabled', 'Enabled', 'Enabled', 'Enabled', 'Disabled'],
+            'Address': ['Barrio A', 'Barrio A', 'Barrio B', 'Zona Sur', 'Zona Sur', 'Barrio C'],
+        })
+
+        resultado = procesar_estadisticos_olt(csv_buffer(olt))
+
+        self.assertEqual(resultado['summary']['Log in'], 1)
+        self.assertEqual(resultado['summary']['LOS'], 1)
+        self.assertEqual(resultado['summary']['Power fail'], 1)
+        self.assertEqual(resultado['summary']['Sync Mib'], 1)
+        self.assertEqual(resultado['summary']['Offline'], 0)
+        self.assertEqual(resultado['summary']['Administrative disable'], 1)
+        self.assertEqual(resultado['summary']['Puertos afectados'], 2)
+        self.assertEqual(resultado['summary']['Puertos caidos'], 1)
+
+        excel = pd.ExcelFile(resultado['excel'])
+        priorizados = excel.parse('Puertos Priorizados')
+        self.assertEqual(priorizados['prioridad'].tolist(), ['ALTA', 'MEDIA'])
+        self.assertEqual(priorizados['estado arpon'].tolist(), ['CAIDO', 'ALARMADO'])
+        self.assertEqual(priorizados['port'].astype(str).tolist(), ['2', '1'])
+        self.assertEqual(priorizados['referencia direccion'].tolist(), ['Zona Sur', 'Barrio A'])
+        self.assertEqual(priorizados.loc[0, 'log in'], 1)
+        self.assertEqual(priorizados.loc[0, 'sync mib'], 1)
+        self.assertEqual(priorizados.loc[0, 'administrative status enable'], 2)
+        self.assertEqual(priorizados.loc[0, 'administrative status disable'], 0)
+        self.assertEqual(priorizados.loc[0, 'usuarios afectados'], 2)
+        self.assertEqual(priorizados.loc[0, 'otros estados'], 0)
+
+        board_port = excel.parse('Board Port')
+        puerto_3 = board_port[board_port['port'].astype(str) == '3'].iloc[0]
+        self.assertEqual(puerto_3['cantidad usuarios'], 0)
+        self.assertEqual(puerto_3['offline'], 0)
+        self.assertEqual(puerto_3['referencia direccion'], 'Barrio C')
+        self.assertEqual(puerto_3['administrative status disable'], 1)
 
     def test_job_estadisticos_olt_lanza_error_si_faltan_columnas(self):
         with self.assertRaises(ValueError) as ctx:

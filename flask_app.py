@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import unicodedata
 from datetime import datetime
@@ -59,7 +60,7 @@ def guardar_resultado_excel(output, nombre_descarga=None):
     output.seek(0)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx', dir=app.config['UPLOAD_FOLDER']) as temp_file:
-        temp_file.write(output.getvalue())
+        shutil.copyfileobj(output, temp_file)
         session['resultado_excel_path'] = temp_file.name
         session['resultado_excel_id'] = os.path.basename(temp_file.name)
         session['resultado_excel_name'] = nombre_descarga or construir_nombre_descarga('resultado')
