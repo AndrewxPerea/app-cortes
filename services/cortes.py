@@ -24,6 +24,7 @@ ABONADO_ALIASES = [
 ]
 PREVIEW_LIMIT = 200
 CSV_CHUNK_SIZE = 25000
+EXCEL_BLANK_ROW_STOP_LIMIT = 1000
 
 COLUMNAS_RESULTADO = [
     "n\u00b0 abonado",
@@ -124,7 +125,12 @@ def _abrir_excel_streaming(archivo):
     )
 
 
-def _iterar_filas_excel(archivo, esquema, nombre_archivo):
+def _iterar_filas_excel(
+    archivo,
+    esquema,
+    nombre_archivo,
+    blank_row_stop_limit=EXCEL_BLANK_ROW_STOP_LIMIT,
+):
     workbook = _abrir_excel_streaming(archivo)
     try:
         worksheet = workbook.active
@@ -134,11 +140,21 @@ def _iterar_filas_excel(archivo, esquema, nombre_archivo):
             raise ValueError(f"El archivo {nombre_archivo} esta vacio.")
 
         indices = _resolver_indices_excel(encabezados, esquema, nombre_archivo)
+        filas_vacias = 0
         for fila in filas:
-            yield {
+            valores = {
                 destino: fila[indice] if indice < len(fila) else None
                 for destino, indice in indices.items()
             }
+
+            if all(_es_vacio(valor) for valor in valores.values()):
+                filas_vacias += 1
+                if filas_vacias >= blank_row_stop_limit:
+                    break
+                continue
+
+            filas_vacias = 0
+            yield valores
     finally:
         workbook.close()
 
