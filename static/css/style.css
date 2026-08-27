@@ -137,3 +137,23 @@ body {
     background-size: 120% 100%, 20% 100%
   }
 }
+
+.resultado-tabla-wrapper {
+  width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.resultado-tabla {
+  min-width: max-content;
+  margin-bottom: 0;
+}
+
+.resultado-tabla th,
+.resultado-tabla td {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}

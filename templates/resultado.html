@@ -26,23 +26,31 @@
             <a href="/" class="btn btn-cafe-outline">Pagina Principa</a>
             <a href="/descargar_resultado" class="btn btn-outline-primary">Descargar Excel</a>
         </div>
-        <table class="table table-striped">
-            <thead class="thead-dark">
-                <tr>
-                    {% for column in columns %}
-                        <th>{{ column }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in data %}
+        <p class="text-muted mt-4 mb-2">
+            Mostrando {{ registros_mostrados }} de {{ total_registros }} registros en pantalla.
+            {% if total_registros > limite_preview %}
+                Descarga el Excel para revisar el resultado completo.
+            {% endif %}
+        </p>
+        <div class="table-responsive resultado-tabla-wrapper">
+            <table class="table table-striped table-sm align-middle resultado-tabla">
+                <thead class="table-dark">
                     <tr>
                         {% for column in columns %}
-                            <td>{{ row[column] }}</td>
+                            <th>{{ column }}</th>
                         {% endfor %}
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for row in data %}
+                        <tr>
+                            {% for column in columns %}
+                                <td>{{ row[column] }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     {% endblock %}

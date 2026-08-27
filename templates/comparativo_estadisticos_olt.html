@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Comparativo Estad&iacute;sticos OLT{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h1 class="mb-3">Comparativo Estad&iacute;sticos OLT</h1>
+                    <p class="text-muted mb-4">
+                        Carga el CSV antiguo y el CSV nuevo exportados desde SmartOLT para evidenciar cambios por OLT, board y puerto: usuarios afectados, estados, prioridad, se&ntilde;ales y puertos nuevos o retirados.
+                    </p>
+                    <div class="mb-3">
+                        <a class="btn btn-outline-secondary" href="/">Volver al inicio</a>
+                    </div>
+                    <form id="resultForm" action="{{ url_for('comparativo_estadisticos_olt') }}" method="post" enctype="multipart/form-data">
+                        <div class="input-group mb-3">
+                            <label class="input-group-text" for="olt_antiguo">Archivo antiguo SmartOLT (CSV)</label>
+                            <input type="file" class="form-control" id="olt_antiguo" name="olt_antiguo" accept=".csv" required>
+                        </div>
+                        <div class="input-group mb-3">
+                            <label class="input-group-text" for="olt_nuevo">Archivo nuevo SmartOLT (CSV)</label>
+                            <input type="file" class="form-control" id="olt_nuevo" name="olt_nuevo" accept=".csv" required>
+                        </div>
+                        <input type="submit" class="btn btn-cafe-outline" value="Comparar archivos">
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h3 class="mb-3">Hojas del Excel</h3>
+                    <ul class="mb-0">
+                        <li>Resumen Comparativo por OLT</li>
+                        <li>Cambios Board Port</li>
+                        <li>Comparativo Board Port completo</li>
+                        <li>Puertos Nuevos y Puertos Retirados</li>
+                        <li>Cambios Prioridad</li>
+                        <li>Estad&iacute;sticos completos del archivo antiguo y del nuevo</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h3 class="mb-3">Archivo de salida</h3>
+                    <p class="mb-0"><strong>Nombre sugerido de descarga:</strong> {{ nombre_descarga }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -78,6 +78,7 @@ coincidencia en fila.
 | `/auditoria_reconexiones` | Cruce Workdrive, SAEPlus, ePayco y SmartOLT. |
 | `/atenuaciones` | Agenda por senales opticas 1310/1490. |
 | `/estadisticos_olt` | Resumen y priorizacion de puertos SmartOLT. |
+| `/comparativo_estadisticos_olt` | Comparativo de estadisticos SmartOLT por OLT, board y puerto. |
 | `/recurrencias` | Transformacion de ordenes de servicio para Power BI. |
 | `/coincidencia_en_fila` | Compara columnas ABONADO y numero de abonado en un Excel. |
 | `/descargar_resultado` | Descarga el ultimo Excel generado en la sesion actual. |

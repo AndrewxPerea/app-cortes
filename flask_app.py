@@ -13,7 +13,7 @@ from services.comparativo_equipos import procesar_comparativo_equipos
 from services.comparativo_precintos import procesar_comparativo_precintos
 from services.coincidencia_en_fila import procesar_coincidencia_en_fila
 from services.cortes import procesar_cortes
-from services.jobs import procesar_estadisticos_olt
+from services.jobs import procesar_comparativo_estadisticos_olt, procesar_estadisticos_olt
 from services.navegacion import (
     procesar_navegacion_catv_y_planes,
     procesar_navegacion_estado_servicio,
@@ -68,6 +68,9 @@ def guardar_resultado_excel(output, nombre_descarga=None):
 
 def renderizar_resultado(resultado, columns=None):
     data = resultado['data'].copy()
+    total_registros = len(data)
+    limite_preview = 10
+    data = data.head(limite_preview)
     data = data.where(pd.notna(data), '')
     return render_template(
         'resultado.html',
@@ -77,6 +80,9 @@ def renderizar_resultado(resultado, columns=None):
         nombre_descarga=session.get('resultado_excel_name', 'resultado.xlsx'),
         file_id=resultado.get('file_id') or session.get('resultado_excel_id'),
         summary=resultado.get('summary'),
+        total_registros=total_registros,
+        registros_mostrados=len(data),
+        limite_preview=limite_preview,
     )
 
 
@@ -726,6 +732,32 @@ def estadisticos_olt():
     return render_template(
         'estadisticos_olt.html',
         nombre_descarga=construir_nombre_descarga('Estadisticos OLT'),
+    )
+
+
+@app.route('/comparativo_estadisticos_olt', methods=['GET', 'POST'])
+def comparativo_estadisticos_olt():
+    if request.method == 'POST':
+        try:
+            archivos = validar_archivos_requeridos(
+                request.files,
+                [
+                    ('olt_antiguo', {'.csv'}, 'antiguo de SmartOLT'),
+                    ('olt_nuevo', {'.csv'}, 'nuevo de SmartOLT'),
+                ]
+            )
+            resultado = procesar_comparativo_estadisticos_olt(
+                archivos['olt_antiguo'],
+                archivos['olt_nuevo']
+            )
+        except Exception as e:
+            return render_template('error.html', error=f"Error en el procesamiento: {e}")
+
+        return guardar_y_renderizar_resultado(resultado, 'Comparativo Estadisticos OLT')
+
+    return render_template(
+        'comparativo_estadisticos_olt.html',
+        nombre_descarga=construir_nombre_descarga('Comparativo Estadisticos OLT'),
     )
 
 
