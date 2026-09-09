@@ -62,7 +62,7 @@ def construir_analisis_navegacion(df_resultado):
         ].copy(),
         'desactivos_con_internet': df_resultado[
             (~estatus.str.lower().isin(['activo', 'por instalar'])) &
-            (status.str.lower() == 'online')
+            (administrative_status == 'Enabled')
         ].copy(),
         'activos_sin_catv': df_resultado[
             (~detalle.str.contains('@', na=False)) &

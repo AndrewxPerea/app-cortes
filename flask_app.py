@@ -69,7 +69,7 @@ def guardar_resultado_excel(output, nombre_descarga=None):
 def renderizar_resultado(resultado, columns=None):
     data = resultado['data'].copy()
     total_registros = len(data)
-    limite_preview = 10
+    limite_preview = 500
     data = data.head(limite_preview)
     data = data.where(pd.notna(data), '')
     return render_template(
